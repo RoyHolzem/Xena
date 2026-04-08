@@ -1,0 +1,95 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: LiveCenter Simple Amplify Hosting stack
+
+Parameters:
+  AppName:
+    Type: String
+    Default: livecenter-simple
+  RepositoryUrl:
+    Type: String
+    Description: GitHub repo URL, e.g. https://github.com/RoyHolzem/LiveCenter-Simple
+  AccessToken:
+    Type: String
+    NoEcho: true
+    Description: GitHub personal access token for Amplify to access the repo
+  BranchName:
+    Type: String
+    Default: main
+  GatewayUrl:
+    Type: String
+    Description: Public HTTPS URL for the OpenClaw gateway
+  GatewayAuthToken:
+    Type: String
+    NoEcho: true
+    Description: Bearer token for the OpenClaw gateway
+  GatewayChatPath:
+    Type: String
+    Default: /v1/chat/completions
+  ModelId:
+    Type: String
+    Default: openai/gpt-5.4
+  AppDisplayName:
+    Type: String
+    Default: LiveCenter Simple
+  AssistantName:
+    Type: String
+    Default: Xena
+  SystemPrompt:
+    Type: String
+    Default: You are Xena, a warm, sharp, resourceful cloud spirit. Keep answers helpful, direct, and concise.
+
+Resources:
+  AmplifyApp:
+    Type: AWS::Amplify::App
+    Properties:
+      Name: !Ref AppName
+      Repository: !Ref RepositoryUrl
+      AccessToken: !Ref AccessToken
+      Platform: WEB_COMPUTE
+      BuildSpec: |
+        version: 1
+        frontend:
+          phases:
+            preBuild:
+              commands:
+                - npm ci
+            build:
+              commands:
+                - npm run build
+          artifacts:
+            baseDirectory: .next
+            files:
+              - '**/*'
+          cache:
+            paths:
+              - node_modules/**/*
+              - .next/cache/**/*
+      EnvironmentVariables:
+        - Name: NEXT_PUBLIC_APP_NAME
+          Value: !Ref AppDisplayName
+        - Name: NEXT_PUBLIC_ASSISTANT_NAME
+          Value: !Ref AssistantName
+        - Name: OPENCLAW_GATEWAY_URL
+          Value: !Ref GatewayUrl
+        - Name: OPENCLAW_GATEWAY_AUTH_TOKEN
+          Value: !Ref GatewayAuthToken
+        - Name: OPENCLAW_GATEWAY_CHAT_PATH
+          Value: !Ref GatewayChatPath
+        - Name: OPENCLAW_MODEL
+          Value: !Ref ModelId
+        - Name: SYSTEM_PROMPT
+          Value: !Ref SystemPrompt
+
+  MainBranch:
+    Type: AWS::Amplify::Branch
+    Properties:
+      AppId: !GetAtt AmplifyApp.AppId
+      BranchName: !Ref BranchName
+      EnableAutoBuild: true
+      Stage: PRODUCTION
+
+Outputs:
+  AmplifyAppId:
+    Value: !GetAtt AmplifyApp.AppId
+  DefaultDomain:
+    Value: !GetAtt AmplifyApp.DefaultDomain
