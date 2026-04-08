@@ -1,43 +1,73 @@
 :root {
-  --bg: #061018;
-  --bg-soft: #0a1622;
-  --panel: rgba(9, 21, 34, 0.82);
-  --panel-strong: rgba(7, 19, 31, 0.96);
-  --border: rgba(87, 224, 255, 0.16);
-  --border-strong: rgba(87, 224, 255, 0.3);
-  --text: #e8fbff;
-  --text-dim: #91b7c4;
-  --cyan: #57e0ff;
-  --cyan-strong: #12cfff;
-  --blue: #3f7cff;
-  --blue-soft: #173a70;
-  --success: #5fffe0;
-  --warn: #ffd166;
-  --danger: #ff7b9c;
-  --shadow: 0 0 30px rgba(18, 207, 255, 0.12);
+  color-scheme: dark;
+  --bg: #02050c;
+  --bg-soft: #07111c;
+  --panel: rgba(8, 18, 30, 0.8);
+  --panel-strong: rgba(5, 13, 22, 0.94);
+  --border: rgba(96, 221, 255, 0.16);
+  --border-strong: rgba(118, 232, 255, 0.28);
+  --text: #edfaff;
+  --text-dim: #93b9c8;
+  --cyan: #64ddff;
+  --cyan-strong: #8ef1ff;
+  --blue: #4b84ff;
+  --blue-deep: #19346d;
+  --danger: #ff92b9;
+  --shadow: 0 0 30px rgba(76, 198, 255, 0.14);
 }
 
-* { box-sizing: border-box; }
-html, body {
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
   margin: 0;
   padding: 0;
   min-height: 100%;
   background:
-    radial-gradient(circle at top, rgba(18, 207, 255, 0.12), transparent 30%),
-    linear-gradient(180deg, #061018 0%, #040b12 100%);
+    radial-gradient(circle at top, rgba(35, 170, 255, 0.12), transparent 28%),
+    linear-gradient(180deg, #03070d 0%, #02050c 100%);
   color: var(--text);
-  font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
 }
+
+body {
+  overflow-x: hidden;
+}
+
 body::before {
   content: '';
   position: fixed;
   inset: 0;
   pointer-events: none;
   background-image:
-    linear-gradient(rgba(87, 224, 255, 0.03) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(87, 224, 255, 0.02) 1px, transparent 1px);
+    linear-gradient(rgba(89, 219, 255, 0.03) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(89, 219, 255, 0.02) 1px, transparent 1px);
   background-size: 100% 28px, 28px 100%;
-  mask-image: linear-gradient(to bottom, rgba(0, 0, 0, 0.3), black 35%, rgba(0,0,0,0.5));
+  mask-image: linear-gradient(to bottom, rgba(0, 0, 0, 0.18), black 35%, rgba(0, 0, 0, 0.46));
 }
-button, input, textarea { font: inherit; }
-a { color: inherit; }
+
+body::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(circle at 50% 0%, rgba(100, 221, 255, 0.08), transparent 32%),
+    radial-gradient(circle at 50% 100%, rgba(59, 120, 255, 0.08), transparent 30%);
+}
+
+button,
+input,
+textarea {
+  font: inherit;
+}
+
+textarea {
+  -webkit-tap-highlight-color: transparent;
+}
+
+a {
+  color: inherit;
+}

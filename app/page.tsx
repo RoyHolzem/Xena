@@ -1,6 +1,5 @@
-import { ChatShell } from '@/components/chat-shell';
-import { publicConfig } from '@/lib/config';
+import { ChatShell } from '@/features/chat/ChatShell';
 
 export default function HomePage() {
-  return <ChatShell appName={publicConfig.appName} assistantName={publicConfig.assistantName} />;
+  return <ChatShell />;
 }
