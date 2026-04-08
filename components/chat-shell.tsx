@@ -4,6 +4,7 @@ import { FormEvent, useMemo, useRef, useState } from 'react';
 import styles from './chat-shell.module.css';
 import type { ChatMessage, PresenceState } from '@/lib/types';
 import { makeId } from '@/lib/utils';
+import { publicConfig } from '@/lib/config';
 
 type Props = {
   appName: string;
@@ -59,10 +60,22 @@ export function ChatShell({ appName, assistantName }: Props) {
     ]);
 
     try {
-      const response = await fetch('/api/chat', {
+      const response = await fetch(`${publicConfig.gatewayUrl}${publicConfig.chatPath}`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ messages: [...messages, userMessage] })
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${publicConfig.gatewayToken}`
+        },
+        body: JSON.stringify({
+          model: 'openclaw',
+          stream: true,
+          messages: [
+            ...messages
+              .filter((message) => message.role === 'user' || message.role === 'assistant')
+              .map((message) => ({ role: message.role, content: message.content })),
+            { role: 'user', content }
+          ]
+        })
       });
 
       if (!response.ok || !response.body) {
@@ -78,43 +91,35 @@ export function ChatShell({ appName, assistantName }: Props) {
         const { done, value } = await reader.read();
         if (done) break;
         buffer += decoder.decode(value, { stream: true });
-        const lines = buffer.split('\n');
-        buffer = lines.pop() || '';
+        const chunks = buffer.split('\n\n');
+        buffer = chunks.pop() || '';
 
-        for (const line of lines) {
-          if (!line.startsWith('data:')) continue;
+        for (const chunk of chunks) {
+          const line = chunk.split('\n').find((entry) => entry.startsWith('data:'));
+          if (!line) continue;
           const raw = line.slice(5).trim();
-          if (!raw || raw === '[DONE]') continue;
-          const payload = JSON.parse(raw) as
-            | { type: 'status'; status: PresenceState; label: string }
-            | { type: 'delta'; content: string }
-            | { type: 'done' }
-            | { type: 'error'; error: string };
-
-          if (payload.type === 'status') {
-            setPresence(payload.status);
-            setStatusText(payload.label);
+          if (!raw) continue;
+          if (raw === '[DONE]') {
+            setPresence('idle');
+            setStatusText(`${assistantName} is idle`);
+            continue;
           }
 
-          if (payload.type === 'delta') {
+          const json = JSON.parse(raw) as {
+            choices?: Array<{ delta?: { content?: string }; message?: { content?: string } }>;
+          };
+
+          const delta = json.choices?.[0]?.delta?.content ?? json.choices?.[0]?.message?.content;
+          if (delta) {
             setPresence('typing');
             setStatusText(`${assistantName} is typing`);
-            assistantBufferRef.current += payload.content;
+            assistantBufferRef.current += delta;
             const text = assistantBufferRef.current;
             setMessages((current) =>
               current.map((message) =>
                 message.id === assistantMessageId ? { ...message, content: text } : message
               )
             );
-          }
-
-          if (payload.type === 'error') {
-            throw new Error(payload.error);
-          }
-
-          if (payload.type === 'done') {
-            setPresence('idle');
-            setStatusText(`${assistantName} is idle`);
           }
         }
       }
@@ -162,9 +167,9 @@ export function ChatShell({ appName, assistantName }: Props) {
             <div className={styles.eyebrow}>Deploy model</div>
             <div className={styles.metaList}>
               <div>• Next.js app router</div>
-              <div>• Amplify Hosting via amplify.yml</div>
-              <div>• Gateway token stays server-side</div>
-              <div>• SSE status + streamed output</div>
+              <div>• Amplify Hosting</div>
+              <div>• Direct browser → gateway path</div>
+              <div>• Streaming responses + presence</div>
             </div>
           </div>
         </aside>
@@ -208,7 +213,7 @@ export function ChatShell({ appName, assistantName }: Props) {
                 placeholder={`Message ${assistantName}...`}
               />
               <div className={styles.actions}>
-                <div className={styles.helper}>{error ? `Last error: ${error}` : 'Streaming responses enabled.'}</div>
+                <div className={styles.helper}>{error ? `Last error: ${error}` : 'Direct gateway mode enabled.'}</div>
                 <button className={styles.button} type="submit" disabled={!draft.trim() || presence === 'processing' || presence === 'typing'}>
                   Send message
                 </button>
