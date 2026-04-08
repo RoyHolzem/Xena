@@ -3,6 +3,7 @@ import { getServerConfig } from '@/lib/config';
 import type { ChatMessage } from '@/lib/types';
 
 export const runtime = 'nodejs';
+export const dynamic = 'force-dynamic';
 
 export async function POST(request: NextRequest) {
   const body = (await request.json()) as { messages?: ChatMessage[] };
@@ -26,12 +27,16 @@ export async function POST(request: NextRequest) {
       model: 'openclaw',
       stream: true,
       messages: upstreamMessages
-    })
+    }),
+    cache: 'no-store'
   });
 
   if (!upstream.ok || !upstream.body) {
     const text = await upstream.text();
-    return new Response(text || 'Gateway request failed', { status: upstream.status || 500 });
+    return new Response(text || 'Gateway request failed', {
+      status: upstream.status || 500,
+      headers: { 'Content-Type': 'text/plain; charset=utf-8' }
+    });
   }
 
   const encoder = new TextEncoder();
@@ -88,8 +93,7 @@ export async function POST(request: NextRequest) {
   return new Response(stream, {
     headers: {
       'Content-Type': 'text/event-stream; charset=utf-8',
-      'Cache-Control': 'no-cache, no-transform',
-      Connection: 'keep-alive'
+      'Cache-Control': 'no-cache, no-transform'
     }
   });
 }
