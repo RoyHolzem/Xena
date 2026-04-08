@@ -23,7 +23,7 @@ export async function POST(request: NextRequest) {
       Authorization: `Bearer ${serverConfig.gatewayToken}`
     },
     body: JSON.stringify({
-      model: serverConfig.model,
+      model: 'openclaw',
       stream: true,
       messages: upstreamMessages
     })
@@ -54,9 +54,7 @@ export async function POST(request: NextRequest) {
           buffer = chunks.pop() || '';
 
           for (const chunk of chunks) {
-            const line = chunk
-              .split('\n')
-              .find((entry) => entry.startsWith('data:'));
+            const line = chunk.split('\n').find((entry) => entry.startsWith('data:'));
             if (!line) continue;
             const data = line.slice(5).trim();
             if (!data) continue;
