@@ -1,20 +1,10 @@
 import { CloudTrailClient, LookupEventsCommand } from '@aws-sdk/client-cloudtrail';
 import { NextResponse } from 'next/server';
 
-const client = new CloudTrailClient({ region: process.env.AWS_REGION || 'eu-central-1' });
+const region = process.env.AWS_REGION || 'eu-central-1';
+const client = new CloudTrailClient({ region });
 
-type AwsAction = {
-  id: string;
-  timestamp: string;
-  verb: string;
-  category: string;
-  label: string;
-  resource: string;
-  region: string;
-  user: string;
-  detail: string;
-};
-
+// ─── Service → category map ───
 const SERVICE_MAP: Record<string, string> = {
   'lambda.amazonaws.com': 'lambda',
   'cloudformation.amazonaws.com': 'cloudformation',
@@ -43,6 +33,8 @@ const SERVICE_MAP: Record<string, string> = {
   'appsync.amazonaws.com': 'appsync',
   'bedrock.amazonaws.com': 'bedrock',
   'sagemaker.amazonaws.com': 'sagemaker',
+  'memorydb.amazonaws.com': 'memorydb',
+  'sts.amazonaws.com': 'sts',
 };
 
 function categorize(source: string): string {
@@ -51,12 +43,48 @@ function categorize(source: string): string {
 
 function extractVerb(eventName: string): string {
   const lower = eventName.toLowerCase();
-  const verbs = ['create', 'update', 'delete', 'deploy', 'invoke', 'list', 'describe', 'get', 'put', 'configur', 'scale', 'start', 'stop', 'modify', 'attach', 'detach', 'enable', 'disable', 'publish', 'subscribe', 'send'];
-  for (const v of verbs) {
-    if (lower.startsWith(v)) return v.replace(/e$/, '') + 'ed';
+  const verbs: [string, string][] = [
+    ['create', 'created'],
+    ['update', 'updated'],
+    ['delete', 'deleted'],
+    ['deploy', 'deployed'],
+    ['invoke', 'invoked'],
+    ['start', 'started'],
+    ['stop', 'stopped'],
+    ['modify', 'modified'],
+    ['configur', 'configured'],
+    ['scale', 'scaled'],
+    ['attach', 'attached'],
+    ['detach', 'detached'],
+    ['enable', 'enabled'],
+    ['disable', 'disabled'],
+    ['publish', 'published'],
+    ['subscribe', 'subscribed'],
+    ['send', 'sent'],
+    ['put', 'put'],
+    ['assume', 'assumed'],
+  ];
+  for (const [prefix, past] of verbs) {
+    if (lower.startsWith(prefix)) return past;
   }
-  if (lower.includes('deploy')) return 'deployed';
   return lower;
+}
+
+// ─── Filter out noisy read-only events ───
+const NOISY_PATTERNS = [
+  'lookup', 'getlogin', 'getuser', 'getrole', 'getpolicy', 'getinstance',
+  'getoperation', 'getbucket', 'getfunction', 'getstage', 'getapi',
+  'getcaller', 'getstatic', 'getdisk', 'getdistribution', 'getcontainer',
+  'getrelational', 'getport', 'getmetric', 'getaccess', 'getinstance',
+  'headbucket', 'listattached', 'listrole', 'listuser', 'listbucket',
+  'listfunction', 'listapps', 'listjobs', 'describ', 'assumerole',
+  'getstage', 'getstages', 'getapis', 'getsnapshot',
+  'createservicelinkedrole', 'describesnapshot',
+];
+
+function isNoisy(eventName: string): boolean {
+  const lower = eventName.toLowerCase();
+  return NOISY_PATTERNS.some((p) => lower.includes(p));
 }
 
 function extractResource(event: any): string {
@@ -66,6 +94,11 @@ function extractResource(event: any): string {
     if (resources.length > 0) return resources[0].resourceName || resources[0].ARN || '—';
   } catch {}
   return '—';
+}
+
+function formatTime(iso: string): string {
+  const d = new Date(iso);
+  return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}:${String(d.getSeconds()).padStart(2, '0')}`;
 }
 
 export async function GET(request: Request) {
@@ -81,32 +114,18 @@ export async function GET(request: Request) {
 
     const response = await client.send(command);
 
-    const actions: AwsAction[] = (response.Events || [])
-      .filter((e) => {
-        const cat = categorize(e.EventSource || '');
-        // Filter out noisy read-only/lookup events
-        const name = (e.EventName || '').toLowerCase();
-        const noisy = ['lookup', 'getloginprofile', 'getuser', 'getrole', 'getpolicy',
-          'listattached', 'listrole', 'listuser', 'listbucket', 'getbucket', 'headbucket',
-          'getfunction', 'listfunction', 'describeaccount', 'describeinstances',
-          'getoperation', 'getoperations', 'getinstanceregion', 'isauthenticated',
-          'getinstanceaccessdetails', 'getinstanceportstates', 'getinstancemetricdata',
-          'getrelationaldatabase', 'getrelationaldatabases', 'getdisk', 'getdisks',
-          'getstaticip', 'getstaticips', 'getdistribution', 'getdistributions',
-          'getdistributionlatestcachereset', 'getbucketobjects', 'getbuckets',
-          'getcontainerimages', 'getcontainerservicemetricdata', 'getcontainerservices'];
-        return !noisy.some((n) => name.includes(n));
-      })
+    const actions = (response.Events || [])
+      .filter((e) => !isNoisy(e.EventName || ''))
       .map((event, i) => ({
         id: `ct-${Date.now()}-${i}`,
-        timestamp: event.EventTime?.toISOString() || new Date().toISOString(),
+        timestamp: formatTime(event.EventTime?.toISOString() || new Date().toISOString()),
         verb: extractVerb(event.EventName || ''),
         category: categorize(event.EventSource || ''),
         label: event.EventName || 'Unknown',
         resource: extractResource(event),
-        region: event.EventSource?.includes('lightsail') ? 'lightsail' : process.env.AWS_REGION || 'eu-central-1',
+        region: event.EventSource?.includes('lightsail') ? 'lightsail' : region,
         user: event.Username || '—',
-        detail: event.EventName || '',
+        source: 'cloudtrail' as const,
       }));
 
     return NextResponse.json({ actions, count: actions.length, since: startTime.toISOString() });
