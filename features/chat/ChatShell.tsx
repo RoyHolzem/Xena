@@ -3,7 +3,14 @@
 import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { publicConfig } from './chat-config';
 import styles from './chat-shell.module.css';
-import type { AvatarState, ChatMessage, ConsoleEntry, PresenceState } from './chat-types';
+import type {
+  ActionLogEntry,
+  AvatarState,
+  ChatMessage,
+  ConsoleEntry,
+  PresenceState,
+  XenaActionEvent
+} from './chat-types';
 import { cn, makeId } from './chat-utils';
 
 const nowIso = () => new Date().toISOString();
@@ -11,6 +18,9 @@ const ts = () => {
   const d = new Date();
   return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}:${String(d.getSeconds()).padStart(2, '0')}`;
 };
+
+const GH_REPO = 'RoyHolzem/LiveCenter-Simple';
+const GH_BRANCH = 'experimental';
 
 export function ChatShell() {
   const { appName, assistantName } = publicConfig;
@@ -32,13 +42,55 @@ export function ChatShell() {
     { id: makeId(), timestamp: ts(), type: 'info', message: `${assistantName} initialized — gateway link established` }
   ]);
   const [consoleOpen, setConsoleOpen] = useState(true);
+  const [actionLog, setActionLog] = useState<ActionLogEntry[]>([]);
+  const [ghStatus, setGhStatus] = useState<'connected' | 'checking' | 'error'>('checking');
+  const [ghCommit, setGhCommit] = useState<string>('—');
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const consoleEndRef = useRef<HTMLDivElement>(null);
+  const actionEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const assistantBufferRef = useRef('');
 
   const addLog = useCallback((type: ConsoleEntry['type'], message: string) => {
     setConsoleLog((prev) => [...prev, { id: makeId(), timestamp: ts(), type, message }]);
+  }, []);
+
+  const addAction = useCallback((event: XenaActionEvent) => {
+    const entry: ActionLogEntry = {
+      id: event.id || makeId(),
+      timestamp: event.timestamp || ts(),
+      verb: event.verb,
+      category: event.category,
+      label: event.label,
+      resource: event.resource,
+      region: event.region,
+      detail: event.detail
+    };
+    setActionLog((prev) => [...prev, entry]);
+    addLog('action', `${event.verb} ${event.category}: ${event.label}${event.region ? ` (${event.region})` : ''}`);
+  }, [addLog]);
+
+  // GitHub status check
+  useEffect(() => {
+    let cancelled = false;
+    const check = async () => {
+      try {
+        const res = await fetch(`https://api.github.com/repos/${GH_REPO}/branches/${GH_BRANCH}`, {
+          headers: { Accept: 'application/vnd.github.v3+json' }
+        });
+        if (!res.ok) throw new Error('GitHub API error');
+        const data = await res.json();
+        if (!cancelled) {
+          setGhStatus('connected');
+          setGhCommit(data.commit?.sha?.slice(0, 7) || '—');
+        }
+      } catch {
+        if (!cancelled) setGhStatus('error');
+      }
+    };
+    check();
+    const interval = setInterval(check, 60000);
+    return () => { cancelled = true; clearInterval(interval); };
   }, []);
 
   // Auto-scroll messages
@@ -50,6 +102,11 @@ export function ChatShell() {
   useEffect(() => {
     consoleEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [consoleLog]);
+
+  // Auto-scroll action log
+  useEffect(() => {
+    actionEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [actionLog]);
 
   // Auto-resize textarea
   useEffect(() => {
@@ -157,24 +214,34 @@ export function ChatShell() {
             continue;
           }
 
-          const json = JSON.parse(raw) as {
-            choices?: Array<{ delta?: { content?: string }; message?: { content?: string } }>;
-          };
+          // ─── Try typed event first ───
+          try {
+            const parsed = JSON.parse(raw);
 
-          const delta = json.choices?.[0]?.delta?.content ?? json.choices?.[0]?.message?.content;
-          if (delta) {
-            chunkCount++;
-            if (chunkCount === 1) {
-              addLog('stream', `First token received — generating response`);
+            // Xena action event: { type: "action", verb, category, label, ... }
+            if (parsed.type === 'action') {
+              addAction(parsed as XenaActionEvent);
+              continue;
             }
-            setPresence('typing');
-            assistantBufferRef.current += delta;
-            const text = assistantBufferRef.current;
-            setMessages((current) =>
-              current.map((m) =>
-                m.id === assistantMessageId ? { ...m, content: text } : m
-              )
-            );
+
+            // Standard OpenAI-format content
+            const delta = parsed.choices?.[0]?.delta?.content ?? parsed.choices?.[0]?.message?.content;
+            if (delta) {
+              chunkCount++;
+              if (chunkCount === 1) {
+                addLog('stream', `First token received — generating response`);
+              }
+              setPresence('typing');
+              assistantBufferRef.current += delta;
+              const text = assistantBufferRef.current;
+              setMessages((current) =>
+                current.map((m) =>
+                  m.id === assistantMessageId ? { ...m, content: text } : m
+                )
+              );
+            }
+          } catch {
+            // Non-JSON SSE line — ignore
           }
         }
       }
@@ -191,7 +258,7 @@ export function ChatShell() {
         )
       );
     }
-  }, [draft, messages, presence, addLog]);
+  }, [draft, messages, presence, addLog, addAction]);
 
   const handleKeyDown = useCallback((e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === 'Enter' && !e.shiftKey) {
@@ -228,7 +295,7 @@ export function ChatShell() {
           <div className={styles.sessionMeta}>
             <div className={styles.metaRow}>
               <span className={styles.metaKey}>Model</span>
-              <span className={styles.metaVal}>OpenClaw</span>
+              <span className={styles.metaVal}>RoyClaw v1.02</span>
             </div>
             <div className={styles.metaRow}>
               <span className={styles.metaKey}>Messages</span>
@@ -238,6 +305,64 @@ export function ChatShell() {
               <span className={styles.metaKey}>Status</span>
               <span className={styles.metaVal}>{statusLabel}</span>
             </div>
+          </div>
+        </div>
+
+        <div className={styles.sessionInfo}>
+          <div className={styles.sessionLabel}>GitHub</div>
+          <div className={styles.sessionMeta}>
+            <div className={styles.metaRow}>
+              <span className={styles.metaKey}>Connection</span>
+              <span className={cn(styles.metaVal, styles.ghStatus, styles[`gh_${ghStatus}`])}>
+                <span className={styles.ghDot} />
+                {ghStatus === 'connected' ? 'Connected' : ghStatus === 'checking' ? 'Checking...' : 'Error'}
+              </span>
+            </div>
+            <div className={styles.metaRow}>
+              <span className={styles.metaKey}>Branch</span>
+              <span className={styles.metaVal}>{GH_BRANCH}</span>
+            </div>
+            <div className={styles.metaRow}>
+              <span className={styles.metaKey}>Version</span>
+              <span className={styles.metaValMono}>{ghCommit}</span>
+            </div>
+          </div>
+        </div>
+
+        {/* ─── AWS Activity Log ─── */}
+        <div className={styles.actionSection}>
+          <div className={styles.sessionLabel}>
+            Activity
+            {actionLog.length > 0 && (
+              <span className={styles.actionCount}>{actionLog.length}</span>
+            )}
+          </div>
+          <div className={styles.actionList}>
+            {actionLog.length === 0 ? (
+              <div className={styles.actionEmpty}>No actions yet</div>
+            ) : (
+              actionLog.map((entry) => (
+                <div key={entry.id} className={styles.actionEntry}>
+                  <div className={styles.actionHead}>
+                    <span className={cn(styles.actionVerb, styles[`verb_${entry.verb}`])}>
+                      {entry.verb}
+                    </span>
+                    <span className={cn(styles.actionCat, styles[`cat_${entry.category}`])}>
+                      {entry.category}
+                    </span>
+                    <span className={styles.actionTime}>{entry.timestamp}</span>
+                  </div>
+                  <div className={styles.actionLabel}>{entry.label}</div>
+                  {entry.resource && (
+                    <div className={styles.actionResource}>{entry.resource}</div>
+                  )}
+                  {entry.region && (
+                    <div className={styles.actionRegion}>{entry.region}</div>
+                  )}
+                </div>
+              ))
+            )}
+            <div ref={actionEndRef} />
           </div>
         </div>
 
