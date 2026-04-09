@@ -10,3 +10,10 @@ export type ChatMessage = {
 export type PresenceState = 'idle' | 'processing' | 'typing' | 'error';
 
 export type AvatarState = 'idle' | 'listening' | 'thinking' | 'speaking' | 'error';
+
+export type ConsoleEntry = {
+  id: string;
+  timestamp: string;
+  type: 'info' | 'action' | 'stream' | 'done' | 'error';
+  message: string;
+};

@@ -3,10 +3,14 @@
 import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { publicConfig } from './chat-config';
 import styles from './chat-shell.module.css';
-import type { AvatarState, ChatMessage, PresenceState } from './chat-types';
+import type { AvatarState, ChatMessage, ConsoleEntry, PresenceState } from './chat-types';
 import { cn, makeId } from './chat-utils';
 
 const nowIso = () => new Date().toISOString();
+const ts = () => {
+  const d = new Date();
+  return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}:${String(d.getSeconds()).padStart(2, '0')}`;
+};
 
 export function ChatShell() {
   const { appName, assistantName } = publicConfig;
@@ -24,14 +28,28 @@ export function ChatShell() {
   const [presence, setPresence] = useState<PresenceState>('idle');
   const [error, setError] = useState<string | null>(null);
   const [isFocused, setIsFocused] = useState(false);
+  const [consoleLog, setConsoleLog] = useState<ConsoleEntry[]>([
+    { id: makeId(), timestamp: ts(), type: 'info', message: `${assistantName} initialized — gateway link established` }
+  ]);
+  const [consoleOpen, setConsoleOpen] = useState(true);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const consoleEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const assistantBufferRef = useRef('');
 
-  // Auto-scroll to bottom on new messages
+  const addLog = useCallback((type: ConsoleEntry['type'], message: string) => {
+    setConsoleLog((prev) => [...prev, { id: makeId(), timestamp: ts(), type, message }]);
+  }, []);
+
+  // Auto-scroll messages
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
+
+  // Auto-scroll console
+  useEffect(() => {
+    consoleEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [consoleLog]);
 
   // Auto-resize textarea
   useEffect(() => {
@@ -65,6 +83,9 @@ export function ChatShell() {
     const content = draft.trim();
     if (!content || presence === 'processing' || presence === 'typing') return;
 
+    addLog('action', `User sent message (${content.length} chars)`);
+    addLog('action', `Preparing request payload — ${messages.length} context messages`);
+
     const userMessage: ChatMessage = {
       id: makeId(),
       role: 'user',
@@ -77,6 +98,7 @@ export function ChatShell() {
     setError(null);
     setDraft('');
     setPresence('processing');
+    addLog('action', `Connecting to gateway → ${publicConfig.gatewayUrl}`);
     setMessages((current) => [
       ...current,
       userMessage,
@@ -107,13 +129,20 @@ export function ChatShell() {
         throw new Error(text || 'Failed to connect to gateway');
       }
 
+      addLog('info', `Gateway responded ${response.status} — stream open`);
+      addLog('action', `Reading SSE stream...`);
+
       const reader = response.body.getReader();
       const decoder = new TextDecoder();
       let buffer = '';
+      let chunkCount = 0;
 
       while (true) {
         const { done, value } = await reader.read();
-        if (done) break;
+        if (done) {
+          addLog('info', `Stream ended — ${chunkCount} chunks received`);
+          break;
+        }
         buffer += decoder.decode(value, { stream: true });
         const chunks = buffer.split('\n\n');
         buffer = chunks.pop() || '';
@@ -123,6 +152,7 @@ export function ChatShell() {
           if (!line) continue;
           const raw = line.slice(5).trim();
           if (!raw || raw === '[DONE]') {
+            addLog('done', `Stream complete — ${assistantBufferRef.current.length} chars generated`);
             setPresence('idle');
             continue;
           }
@@ -133,6 +163,10 @@ export function ChatShell() {
 
           const delta = json.choices?.[0]?.delta?.content ?? json.choices?.[0]?.message?.content;
           if (delta) {
+            chunkCount++;
+            if (chunkCount === 1) {
+              addLog('stream', `First token received — generating response`);
+            }
             setPresence('typing');
             assistantBufferRef.current += delta;
             const text = assistantBufferRef.current;
@@ -148,6 +182,7 @@ export function ChatShell() {
       const message = err instanceof Error ? err.message : 'Unknown error';
       setPresence('error');
       setError(message);
+      addLog('error', `Gateway error: ${message}`);
       setMessages((current) =>
         current.map((m) =>
           m.id === assistantMessageId
@@ -156,7 +191,7 @@ export function ChatShell() {
         )
       );
     }
-  }, [draft, messages, presence]);
+  }, [draft, messages, presence, addLog]);
 
   const handleKeyDown = useCallback((e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === 'Enter' && !e.shiftKey) {
@@ -222,79 +257,133 @@ export function ChatShell() {
               <p>AI Assistant</p>
             </div>
           </div>
-          <div className={styles.headerStatus}>
-            <span className={cn(styles.headerStatusDot, styles[avatarState])} />
-            {statusLabel}
+          <div className={styles.headerRight}>
+            <button
+              className={styles.consoleToggle}
+              onClick={() => setConsoleOpen((v) => !v)}
+              title={consoleOpen ? 'Hide console' : 'Show console'}
+            >
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <polyline points="4 17 10 11 4 5" />
+                <line x1="12" y1="19" x2="20" y2="19" />
+              </svg>
+              Console
+              <span className={cn(styles.consoleCount, consoleLog.length > 0 && styles.active)}>
+                {consoleLog.length}
+              </span>
+            </button>
+            <div className={styles.headerStatus}>
+              <span className={cn(styles.headerStatusDot, styles[avatarState])} />
+              {statusLabel}
+            </div>
           </div>
         </div>
 
-        <div className={styles.messages} role="log" aria-live="polite">
-          {messages.map((message) => (
-            <div
-              key={message.id}
-              className={cn(styles.message, styles[message.role])}
-            >
-              <div className={styles.msgAvatar}>
-                {message.role === 'user' ? 'U' : assistantInitial}
-              </div>
-              <div className={styles.msgContent}>
-                <div className={styles.msgRole}>
-                  {message.role === 'user' ? 'You' : assistantName}
-                </div>
-                <div className={styles.msgBubble}>
-                  {message.content || (
-                    <div className={styles.typing}>
-                      <span />
-                      <span />
-                      <span />
+        <div className={styles.mainContent}>
+          <div className={cn(styles.chatArea, consoleOpen && styles.withConsole)}>
+            <div className={styles.messages} role="log" aria-live="polite">
+              {messages.map((message) => (
+                <div
+                  key={message.id}
+                  className={cn(styles.message, styles[message.role])}
+                >
+                  <div className={styles.msgAvatar}>
+                    {message.role === 'user' ? 'U' : assistantInitial}
+                  </div>
+                  <div className={styles.msgContent}>
+                    <div className={styles.msgRole}>
+                      {message.role === 'user' ? 'You' : assistantName}
                     </div>
-                  )}
+                    <div className={styles.msgBubble}>
+                      {message.content || (
+                        <div className={styles.typing}>
+                          <span />
+                          <span />
+                          <span />
+                        </div>
+                      )}
+                    </div>
+                  </div>
                 </div>
+              ))}
+              <div ref={messagesEndRef} />
+            </div>
+
+            <div className={styles.composer}>
+              <div className={styles.composerInner}>
+                {error && (
+                  <div className={cn(styles.errorBanner, styles.visible)}>{error}</div>
+                )}
+                <form className={styles.form} onSubmit={handleSubmit}>
+                  <div className={styles.inputWrap}>
+                    <textarea
+                      ref={textareaRef}
+                      className={styles.input}
+                      value={draft}
+                      onChange={(e) => setDraft(e.target.value)}
+                      onFocus={() => setIsFocused(true)}
+                      onBlur={() => setIsFocused(false)}
+                      onKeyDown={handleKeyDown}
+                      placeholder={`Message ${assistantName}...`}
+                      rows={1}
+                    />
+                    <div className={styles.inputActions}>
+                      <span className={styles.inputHint}>
+                        Shift+Enter for new line
+                      </span>
+                      <button
+                        className={styles.button}
+                        type="submit"
+                        disabled={!draft.trim() || presence === 'processing' || presence === 'typing'}
+                      >
+                        Send
+                        <span className={styles.buttonIcon}>
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                            <path d="M22 2L11 13" />
+                            <path d="M22 2L15 22L11 13L2 9L22 2Z" />
+                          </svg>
+                        </span>
+                      </button>
+                    </div>
+                  </div>
+                </form>
               </div>
             </div>
-          ))}
-          <div ref={messagesEndRef} />
-        </div>
-
-        <div className={styles.composer}>
-          <div className={styles.composerInner}>
-            {error && (
-              <div className={cn(styles.errorBanner, styles.visible)}>{error}</div>
-            )}
-            <form className={styles.form} onSubmit={handleSubmit}>
-              <div className={styles.inputWrap}>
-                <textarea
-                  ref={textareaRef}
-                  className={styles.input}
-                  value={draft}
-                  onChange={(e) => setDraft(e.target.value)}
-                  onFocus={() => setIsFocused(true)}
-                  onBlur={() => setIsFocused(false)}
-                  onKeyDown={handleKeyDown}
-                  placeholder={`Message ${assistantName}...`}
-                  rows={1}
-                />
-                <div className={styles.inputActions}>
-                  <span className={styles.inputHint}>
-                    Shift+Enter for new line
-                  </span>
-                  <button
-                    className={styles.button}
-                    type="submit"
-                    disabled={!draft.trim() || presence === 'processing' || presence === 'typing'}
-                  >
-                    Send
-                    <span className={styles.buttonIcon}>
-                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                        <path d="M22 2L11 13" />
-                        <path d="M22 2L15 22L11 13L2 9L22 2Z" />
-                      </svg>
-                    </span>
-                  </button>
-                </div>
-              </div>
-            </form>
           </div>
+
+          {/* ─── Console Panel ─── */}
+          {consoleOpen && (
+            <div className={styles.consolePanel}>
+              <div className={styles.consoleHead}>
+                <div className={styles.consoleHeadLeft}>
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <polyline points="4 17 10 11 4 5" />
+                    <line x1="12" y1="19" x2="20" y2="19" />
+                  </svg>
+                  Console
+                </div>
+                <button className={styles.consoleClear} onClick={() => setConsoleLog([])}>
+                  Clear
+                </button>
+              </div>
+              <div className={styles.consoleBody}>
+                {consoleLog.map((entry) => (
+                  <div key={entry.id} className={cn(styles.consoleRow, styles[`log_${entry.type}`])}>
+                    <span className={styles.consoleTs}>{entry.timestamp}</span>
+                    <span className={cn(styles.consoleIcon, styles[`icon_${entry.type}`])}>
+                      {entry.type === 'info' && 'ℹ'}
+                      {entry.type === 'action' && '→'}
+                      {entry.type === 'stream' && '⚡'}
+                      {entry.type === 'done' && '✓'}
+                      {entry.type === 'error' && '✕'}
+                    </span>
+                    <span className={styles.consoleMsg}>{entry.message}</span>
+                  </div>
+                ))}
+                <div ref={consoleEndRef} />
+              </div>
+            </div>
+          )}
         </div>
       </main>
     </div>

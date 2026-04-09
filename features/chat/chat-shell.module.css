@@ -294,6 +294,51 @@
   margin-top: 1px;
 }
 
+.headerRight {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.consoleToggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 500;
+  border: 1px solid var(--border);
+  background: var(--bg-elevated);
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+.consoleToggle:hover {
+  background: var(--bg-hover);
+  border-color: var(--border-focus);
+}
+
+.consoleCount {
+  font-size: 10px;
+  font-weight: 700;
+  min-width: 18px;
+  height: 18px;
+  border-radius: 9px;
+  background: var(--bg-hover);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-tertiary);
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.consoleCount.active {
+  background: var(--accent-muted);
+  color: var(--accent-hover);
+}
+
 .headerStatus {
   display: inline-flex;
   align-items: center;
@@ -334,6 +379,148 @@
 
 .headerStatusDot.error {
   background: var(--red);
+}
+
+/* ─── Main Content Layout ─── */
+.mainContent {
+  flex: 1;
+  display: flex;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.chatArea {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  transition: margin-right 0.25s ease;
+}
+
+.chatArea.withConsole {
+  margin-right: 0;
+}
+
+/* ─── Console Panel ─── */
+.consolePanel {
+  width: 340px;
+  min-width: 340px;
+  border-left: 1px solid var(--border);
+  background: var(--bg);
+  display: flex;
+  flex-direction: column;
+}
+
+.consoleHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--border);
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.consoleHeadLeft {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.consoleClear {
+  border: none;
+  background: none;
+  color: var(--text-tertiary);
+  font-size: 11px;
+  cursor: pointer;
+  padding: 2px 8px;
+  border-radius: 4px;
+  transition: color 0.15s ease, background 0.15s ease;
+}
+
+.consoleClear:hover {
+  color: var(--text-secondary);
+  background: var(--bg-hover);
+}
+
+.consoleBody {
+  flex: 1;
+  overflow-y: auto;
+  padding: 8px 0;
+  font-family: 'SF Mono', 'Cascadia Code', 'Fira Code', 'Consolas', monospace;
+  font-size: 11.5px;
+  line-height: 1.55;
+}
+
+.consoleRow {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 4px 14px;
+  transition: background 0.1s ease;
+}
+
+.consoleRow:hover {
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.consoleTs {
+  flex-shrink: 0;
+  color: var(--text-tertiary);
+  font-size: 10px;
+  margin-top: 2px;
+  min-width: 56px;
+}
+
+.consoleIcon {
+  flex-shrink: 0;
+  width: 16px;
+  text-align: center;
+  font-size: 11px;
+  margin-top: 1px;
+}
+
+.icon_info {
+  color: var(--accent);
+}
+
+.icon_action {
+  color: var(--amber);
+}
+
+.icon_stream {
+  color: var(--green);
+}
+
+.icon_done {
+  color: var(--green);
+}
+
+.icon_error {
+  color: var(--red);
+}
+
+.consoleMsg {
+  color: var(--text-secondary);
+  word-break: break-word;
+}
+
+.log_action .consoleMsg {
+  color: var(--amber);
+}
+
+.log_stream .consoleMsg {
+  color: var(--green);
+}
+
+.log_done .consoleMsg {
+  color: var(--green);
+  opacity: 0.8;
+}
+
+.log_error .consoleMsg {
+  color: var(--red);
 }
 
 /* ─── Messages ─── */
@@ -589,8 +776,23 @@
 }
 
 /* ─── Responsive ─── */
+@media (max-width: 1100px) {
+  .consolePanel {
+    width: 280px;
+    min-width: 280px;
+  }
+}
+
 @media (max-width: 900px) {
   .sidebar {
+    display: none;
+  }
+
+  .consolePanel {
+    display: none;
+  }
+
+  .consoleToggle {
     display: none;
   }
 
