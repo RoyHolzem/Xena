@@ -8,7 +8,7 @@ const GATEWAY_URL = process.env.NEXT_PUBLIC_GATEWAY_URL || '';
 const CHAT_PATH = process.env.NEXT_PUBLIC_GATEWAY_CHAT_PATH || '/v1/chat/completions';
 const SECRET_NAME = process.env.NEXT_PUBLIC_GATEWAY_TOKEN_SECRET_NAME || '';
 const REGION = process.env.NEXT_PUBLIC_COGNITO_REGION || 'eu-central-1';
-const FALLBACK_TOKEN = process.env.GATEWAY_AUTH_TOKEN || '';
+const FALLBACK_TOKEN = process.env.NEXT_PUBLIC_GATEWAY_AUTH_TOKEN || '';
 
 const secretsClient = new SecretsManagerClient({ region: REGION });
 
