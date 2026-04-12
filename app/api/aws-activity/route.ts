@@ -1,17 +1,18 @@
 import { CloudTrailClient, LookupEventsCommand } from '@aws-sdk/client-cloudtrail';
 import { NextResponse } from 'next/server';
+import { verifyToken } from '@/lib/cognito-jwt';
 
-const region = process.env.NEXT_PUBLIC_CT_AWS_REGION || 'eu-central-1';
+const region = process.env.CT_AWS_REGION || 'eu-central-1';
 
 const client = new CloudTrailClient({
   region,
   credentials: {
-    accessKeyId: process.env.NEXT_PUBLIC_CT_AWS_ACCESS_KEY_ID || '',
-    secretAccessKey: process.env.NEXT_PUBLIC_CT_AWS_SECRET_ACCESS_KEY || '',
+    accessKeyId: process.env.CT_AWS_ACCESS_KEY_ID || '',
+    secretAccessKey: process.env.CT_AWS_SECRET_ACCESS_KEY || '',
   },
 });
 
-// ─── Service → category map ───
+// ── Service category map ──
 const SERVICE_MAP: Record<string, string> = {
   'lambda.amazonaws.com': 'lambda',
   'cloudformation.amazonaws.com': 'cloudformation',
@@ -77,7 +78,7 @@ function extractVerb(eventName: string): string {
   return lower;
 }
 
-// ─── Filter out noisy read-only events ───
+// ── Filter out noisy read-only events ──
 const NOISY_PATTERNS = [
   'lookup', 'getlogin', 'getuser', 'getrole', 'getpolicy', 'getinstance',
   'getoperation', 'getbucket', 'getfunction', 'getstage', 'getapi',
@@ -98,9 +99,9 @@ function extractResource(event: any): string {
   if (event.ResourceName) return event.ResourceName;
   try {
     const resources = JSON.parse(event.Resources || '[]');
-    if (resources.length > 0) return resources[0].resourceName || resources[0].ARN || '—';
+    if (resources.length > 0) return resources[0].resourceName || resources[0].ARN || '-';
   } catch {}
-  return '—';
+  return '-';
 }
 
 function formatTime(iso: string): string {
@@ -109,6 +110,13 @@ function formatTime(iso: string): string {
 }
 
 export async function GET(request: Request) {
+  // ── Auth check ──
+  const authHeader = request.headers.get('Authorization');
+  const user = await verifyToken(authHeader);
+  if (!user) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
   const { searchParams } = new URL(request.url);
   const minutes = parseInt(searchParams.get('minutes') || '30', 10);
   const startTime = new Date(Date.now() - minutes * 60 * 1000);
@@ -131,7 +139,7 @@ export async function GET(request: Request) {
         label: event.EventName || 'Unknown',
         resource: extractResource(event),
         region: event.EventSource?.includes('lightsail') ? 'lightsail' : region,
-        user: event.Username || '—',
+        user: event.Username || '-',
         source: 'cloudtrail' as const,
       }));
 

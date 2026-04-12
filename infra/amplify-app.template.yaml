@@ -1,50 +1,206 @@
 AWSTemplateFormatVersion: '2010-09-09'
-Description: Xena Amplify Hosting stack
+Description: >
+  Xena - AI Assistant Interface.
+  Provisions Cognito User Pool + Amplify Hosting.
+  Fully redeployable on any AWS account.
 
 Parameters:
-  AppName:
-    Type: String
-    Default: xena
+  # ── Repository ──
   RepositoryUrl:
     Type: String
-    Description: GitHub repo URL, e.g. https://github.com/RoyHolzem/xena
-  AccessToken:
+    Default: https://github.com/RoyHolzem/Xena
+    Description: GitHub repo URL
+  GitHubAccessToken:
     Type: String
     NoEcho: true
-    Description: GitHub personal access token for Amplify to access the repo
-  BranchName:
+    Description: GitHub personal access token for Amplify
+
+  # ── Cognito ──
+  CognitoDomainPrefix:
     Type: String
-    Default: main
+    Description: >
+      Globally unique prefix for the Cognito hosted-ui domain.
+      Must be unique across all AWS accounts. Lowercase, hyphens only.
+    AllowedPattern: '^[a-z][a-z0-9-]{3,62}$'
+
+  # ── Google OAuth (optional) ──
+  GoogleClientId:
+    Type: String
+    NoEcho: true
+    Default: ''
+    Description: Google OAuth Client ID (leave empty to disable)
+  GoogleClientSecret:
+    Type: String
+    NoEcho: true
+    Default: ''
+    Description: Google OAuth Client Secret (leave empty to disable)
+
+  # ── Amplify domain (for callback URLs) ──
+  AmplifyAppDomain:
+    Type: String
+    Default: ''
+    Description: >
+      Amplify app domain (e.g. d1abc234.amplifyapp.com).
+      Leave empty on first deploy, then update the stack with
+      the AmplifyAppId output to populate callback URLs.
+
+  # ── Gateway ──
   GatewayUrl:
     Type: String
-    Description: Public HTTPS URL for the OpenClaw gateway
+    Description: OpenClaw gateway public HTTPS URL
   GatewayAuthToken:
     Type: String
     NoEcho: true
-    Description: Bearer token for the OpenClaw gateway
+    Description: Bearer token for the gateway (server-side only)
   GatewayChatPath:
     Type: String
     Default: /v1/chat/completions
-  ModelId:
+
+  # ── CloudTrail (optional) ──
+  CloudTrailAccessKeyId:
     Type: String
-    Default: openai/gpt-5.4
+    NoEcho: true
+    Default: ''
+  CloudTrailSecretAccessKey:
+    Type: String
+    NoEcho: true
+    Default: ''
+  CloudTrailRegion:
+    Type: String
+    Default: eu-central-1
+
+  # ── App branding ──
   AppDisplayName:
     Type: String
     Default: Xena
   AssistantName:
     Type: String
     Default: Xena
-  SystemPrompt:
-    Type: String
-    Default: You are Xena, a warm, sharp, resourceful cloud spirit. Keep answers helpful, direct, and concise.
+
+Conditions:
+  HasGoogleOAuth: !And
+    - !Not [!Equals [!Ref GoogleClientId, '']]
+    - !Not [!Equals [!Ref GoogleClientSecret, '']]
+  HasAmplifyDomain: !Not [!Equals [!Ref AmplifyAppDomain, '']]
+  HasCloudTrail: !And
+    - !Not [!Equals [!Ref CloudTrailAccessKeyId, '']]
+    - !Not [!Equals [!Ref CloudTrailSecretAccessKey, '']]
 
 Resources:
+  # ══════════════════════════════════════════
+  #  COGNITO
+  # ══════════════════════════════════════════
+
+  UserPool:
+    Type: AWS::Cognito::UserPool
+    Properties:
+      UserPoolName: !Sub '${AWS::StackName}-users'
+      AutoVerifiedAttributes: [email]
+      UsernameAttributes: [email]
+      Policies:
+        PasswordPolicy:
+          MinimumLength: 8
+          RequireUppercase: true
+          RequireLowercase: true
+          RequireNumbers: true
+          RequireSymbols: true
+      Schema:
+        - Name: role
+          AttributeDataType: String
+          Mutable: true
+        - Name: team
+          AttributeDataType: String
+          Mutable: true
+      AdminCreateUserConfig:
+        AllowAdminCreateUserOnly: false
+      EmailVerificationSubject: !Sub '${AppDisplayName} - Verify your email'
+      EmailVerificationMessage: >
+        Welcome to ${AppDisplayName}.
+        Your verification code is {####}.
+
+  UserPoolDomain:
+    Type: AWS::Cognito::UserPoolDomain
+    Properties:
+      Domain: !Ref CognitoDomainPrefix
+      UserPoolId: !Ref UserPool
+
+  UserPoolGoogleProvider:
+    Type: AWS::Cognito::UserPoolIdentityProvider
+    Condition: HasGoogleOAuth
+    Properties:
+      ProviderName: Google
+      ProviderType: Google
+      UserPoolId: !Ref UserPool
+      ProviderDetails:
+        client_id: !Ref GoogleClientId
+        client_secret: !Ref GoogleClientSecret
+        authorize_scopes: 'email openid profile'
+      AttributeMapping:
+        email: email
+        name: name
+
+  UserPoolClient:
+    Type: AWS::Cognito::UserPoolClient
+    Properties:
+      ClientName: !Sub '${AWS::StackName}-web'
+      UserPoolId: !Ref UserPool
+      ExplicitAuthFlows:
+        - ALLOW_USER_PASSWORD_AUTH
+        - ALLOW_USER_SRP_AUTH
+        - ALLOW_REFRESH_TOKEN_AUTH
+      PreventUserExistenceErrors: ENABLED
+      EnableTokenRevocation: true
+      ReadAttributes:
+        - email
+        - email_verified
+        - custom:role
+        - custom:team
+      WriteAttributes:
+        - email
+        - custom:role
+        - custom:team
+      SupportedIdentityProviders: !If
+        - HasGoogleOAuth
+        - [COGNITO, Google]
+        - [COGNITO]
+      CallbackURLs: !If
+        - HasAmplifyDomain
+        - - !Sub 'https://main.${AmplifyAppDomain}'
+          - !Sub 'https://staging.${AmplifyAppDomain}'
+          - !Sub 'https://experimental.${AmplifyAppDomain}'
+          - 'http://localhost:3000'
+        - ['http://localhost:3000']
+      LogoutURLs: !If
+        - HasAmplifyDomain
+        - - !Sub 'https://main.${AmplifyAppDomain}'
+          - !Sub 'https://staging.${AmplifyAppDomain}'
+          - !Sub 'https://experimental.${AmplifyAppDomain}'
+          - 'http://localhost:3000'
+        - ['http://localhost:3000']
+      DefaultRedirectURI: !If
+        - HasAmplifyDomain
+        - !Sub 'https://main.${AmplifyAppDomain}'
+        - 'http://localhost:3000'
+      AllowedOAuthFlows: [code, implicit]
+      AllowedOAuthScopes: [email, openid, profile]
+      AllowedOAuthFlowsUserPoolClient: true
+      AccessTokenValidity: 1
+      IdTokenValidity: 1
+      TokenValidityUnits:
+        AccessToken: hours
+        IdToken: hours
+        RefreshToken: days
+
+  # ══════════════════════════════════════════
+  #  AMPLIFY
+  # ══════════════════════════════════════════
+
   AmplifyApp:
     Type: AWS::Amplify::App
     Properties:
-      Name: !Ref AppName
+      Name: !Ref AppDisplayName
       Repository: !Ref RepositoryUrl
-      AccessToken: !Ref AccessToken
+      AccessToken: !Ref GitHubAccessToken
       Platform: WEB_COMPUTE
       BuildSpec: |
         version: 1
@@ -65,31 +221,77 @@ Resources:
               - node_modules/**/*
               - .next/cache/**/*
       EnvironmentVariables:
+        # ── Client-side (NEXT_PUBLIC_) ──
         - Name: NEXT_PUBLIC_APP_NAME
           Value: !Ref AppDisplayName
         - Name: NEXT_PUBLIC_ASSISTANT_NAME
           Value: !Ref AssistantName
-        - Name: OPENCLAW_GATEWAY_URL
+        - Name: NEXT_PUBLIC_COGNITO_USER_POOL_ID
+          Value: !Ref UserPool
+        - Name: NEXT_PUBLIC_COGNITO_CLIENT_ID
+          Value: !Ref UserPoolClient
+        - Name: NEXT_PUBLIC_COGNITO_REGION
+          Value: !Ref 'AWS::Region'
+        - Name: NEXT_PUBLIC_GATEWAY_URL
           Value: !Ref GatewayUrl
-        - Name: OPENCLAW_GATEWAY_AUTH_TOKEN
-          Value: !Ref GatewayAuthToken
-        - Name: OPENCLAW_GATEWAY_CHAT_PATH
+        - Name: NEXT_PUBLIC_GATEWAY_CHAT_PATH
           Value: !Ref GatewayChatPath
-        - Name: OPENCLAW_MODEL
-          Value: !Ref ModelId
-        - Name: SYSTEM_PROMPT
-          Value: !Ref SystemPrompt
+        # ── Server-side (no NEXT_PUBLIC_ prefix) ──
+        - Name: GATEWAY_AUTH_TOKEN
+          Value: !Ref GatewayAuthToken
+        - Name: CT_AWS_ACCESS_KEY_ID
+          Value: !Ref CloudTrailAccessKeyId
+        - Name: CT_AWS_SECRET_ACCESS_KEY
+          Value: !Ref CloudTrailSecretAccessKey
+        - Name: CT_AWS_REGION
+          Value: !Ref CloudTrailRegion
 
   MainBranch:
     Type: AWS::Amplify::Branch
     Properties:
       AppId: !GetAtt AmplifyApp.AppId
-      BranchName: !Ref BranchName
+      BranchName: main
       EnableAutoBuild: true
       Stage: PRODUCTION
 
+  StagingBranch:
+    Type: AWS::Amplify::Branch
+    Properties:
+      AppId: !GetAtt AmplifyApp.AppId
+      BranchName: staging
+      EnableAutoBuild: true
+      Stage: BETA
+
+  ExperimentalBranch:
+    Type: AWS::Amplify::Branch
+    Properties:
+      AppId: !GetAtt AmplifyApp.AppId
+      BranchName: experimental
+      EnableAutoBuild: true
+      Stage: DEVELOPMENT
+
 Outputs:
+  UserPoolId:
+    Description: Cognito User Pool ID
+    Value: !Ref UserPool
+  UserPoolClientId:
+    Description: Cognito App Client ID
+    Value: !Ref UserPoolClient
+  CognitoDomain:
+    Description: Cognito hosted-ui domain
+    Value: !Sub '${CognitoDomainPrefix}.auth.${AWS::Region}.amazoncognito.com'
   AmplifyAppId:
+    Description: Amplify Application ID
     Value: !GetAtt AmplifyApp.AppId
-  DefaultDomain:
+  AmplifyDefaultDomain:
+    Description: Default Amplify domain
     Value: !GetAtt AmplifyApp.DefaultDomain
+  MainUrl:
+    Description: Production URL
+    Value: !Sub 'https://main.${AmplifyApp.AppId}.amplifyapp.com'
+  StagingUrl:
+    Description: Staging URL
+    Value: !Sub 'https://staging.${AmplifyApp.AppId}.amplifyapp.com'
+  ExperimentalUrl:
+    Description: Experimental URL
+    Value: !Sub 'https://experimental.${AmplifyApp.AppId}.amplifyapp.com'

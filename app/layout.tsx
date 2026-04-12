@@ -3,7 +3,7 @@ import './globals.css';
 
 export const metadata: Metadata = {
   title: 'Xena',
-  description: 'Standalone matrix-blue chat UI for Xena via OpenClaw Gateway.'
+  description: 'AI Assistant Interface with Cognito authentication.',
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

@@ -1,135 +1,157 @@
 # Xena
 
-A production-ready **standalone chat UI** for **Xena** that talks to an **OpenClaw Gateway**. This is **not** the OpenClaw dashboard — it is a custom Next.js frontend with a matrix-blue dark theme, streaming replies, and a real-time presence indicator (`idle`, `processing`, `typing`).
+**AI Assistant Interface** — a production-grade, fully authenticated chat UI deployed on AWS Amplify with Cognito.
 
-## Features
+## What This Is
 
-- **Pure IaC deployment** for Amplify Hosting via `amplify.yml`
-- **Custom standalone chat UI** built with Next.js App Router
-- **Server-side gateway proxy** so the OpenClaw auth token never reaches the browser
-- **SSE streaming** from `POST /v1/chat/completions`
-- **Real-time activity indicator**
-- **Deployable by anyone** with environment variables + CloudFormation template
+Xena is a Next.js 14 app that provides a real-time streaming chat interface to an OpenClaw gateway. It features:
 
----
+- **Cognito Authentication** — login/signup with email + password (Google OAuth optional). No one sees the chat without authenticating.
+- **Server-side Gateway Proxy** — the browser never touches the gateway token. All chat and AWS API calls go through Next.js API routes that verify the Cognito JWT before forwarding.
+- **CloudTrail Activity Feed** — live AWS activity displayed in the sidebar (polls every 15s).
+- **GitHub Status** — shows connected branch + latest commit SHA.
+- **Enterprise Console** — real-time log of all gateway interactions.
+- **Fully IaC** — one CloudFormation template provisions Cognito User Pool + Domain + App Client + Amplify App + all branches.
 
 ## Architecture
 
-```text
-Browser
-  -> Next.js frontend on Amplify Hosting
-  -> /api/chat route (server-side proxy)
-  -> OpenClaw Gateway HTTP API
-     POST /v1/chat/completions
+```
+Browser (Next.js)
+  +-- /page.tsx -> AuthWrapper (Cognito login screen)
+  |                  +-- ChatShell (post-auth chat UI)
+  +-- /api/chat -> verifies JWT -> proxies to OpenClaw gateway
+  +-- /api/aws-activity -> verifies JWT -> polls CloudTrail
+
+AWS Infrastructure (CloudFormation):
+  +-- Cognito User Pool (email auth, Google OAuth)
+  +-- Cognito User Pool Domain (hosted UI)
+  +-- Cognito App Client (OAuth flows, callback URLs)
+  +-- Amplify App (3 branches: main, staging, experimental)
 ```
 
-The frontend never calls the gateway directly with a secret. The Next.js server route adds the gateway bearer token and streams the response back to the browser.
+**Secrets are never exposed to the browser.** GATEWAY_AUTH_TOKEN, CT_AWS_ACCESS_KEY_ID, and CT_AWS_SECRET_ACCESS_KEY are server-side only (no NEXT_PUBLIC_ prefix).
 
----
+## Quick Deploy
 
-## Required environment variables
+### Prerequisites
+- AWS account
+- GitHub personal access token (repo access)
+- OpenClaw gateway URL + auth token
 
-Copy `.env.example` to `.env.local` for local development, or configure the same variables in **AWS Amplify Hosting**.
-
-| Variable | Required | Description |
-|---|---:|---|
-| `OPENCLAW_GATEWAY_URL` | yes | Public HTTPS base URL for your OpenClaw Gateway, e.g. `https://18.194.41.114` or your reverse-proxied domain |
-| `OPENCLAW_GATEWAY_AUTH_TOKEN` | yes | Gateway bearer token |
-| `OPENCLAW_GATEWAY_CHAT_PATH` | no | Defaults to `/v1/chat/completions` |
-| `OPENCLAW_MODEL` | no | Defaults to `openai/gpt-5.4` |
-| `SYSTEM_PROMPT` | no | Server-side persona prompt |
-| `NEXT_PUBLIC_APP_NAME` | no | UI title |
-| `NEXT_PUBLIC_ASSISTANT_NAME` | no | Display name in the chat UI |
-
-> Important: `OPENCLAW_GATEWAY_URL` must be **publicly reachable from Amplify**. `http://127.0.0.1:18789` only works locally on the gateway host.
-
----
-
-## Local development
+### 1. Deploy CloudFormation
 
 ```bash
-npm install
+aws cloudformation create-stack \
+  --stack-name xena \
+  --template-body file://infra/amplify-app.template.yaml \
+  --parameters \
+      ParameterKey=GitHubAccessToken,ParameterValue=ghp_xxx \
+      ParameterKey=CognitoDomainPrefix,ParameterValue=xena-yourname \
+      ParameterKey=GatewayUrl,ParameterValue=https://your-gateway \
+      ParameterKey=GatewayAuthToken,ParameterValue=your-token \
+  --capabilities CAPABILITY_AUTO_EXPAND \
+  --region eu-central-1
+```
+
+### 2. Get the Amplify Domain
+
+```bash
+aws cloudformation describe-stacks \
+  --stack-name xena \
+  --query "Stacks[0].Outputs" \
+  --region eu-central-1
+```
+
+### 3. Update Callback URLs
+
+After the first deploy, update the stack with AmplifyAppDomain parameter set to the Amplify default domain so Cognito callback URLs are correct:
+
+```bash
+aws cloudformation update-stack \
+  --stack-name xena \
+  --use-previous-template \
+  --parameters \
+      ParameterKey=GitHubAccessToken,UsePreviousValue=true \
+      ParameterKey=CognitoDomainPrefix,UsePreviousValue=true \
+      ParameterKey=AmplifyAppDomain,ParameterValue=dXXXXXXXXXXX.amplifyapp.com \
+      ParameterKey=GatewayUrl,UsePreviousValue=true \
+      ParameterKey=GatewayAuthToken,UsePreviousValue=true \
+  --capabilities CAPABILITY_AUTO_EXPAND \
+  --region eu-central-1
+```
+
+### 4. Create Your First User
+
+Sign up directly on the website, or via CLI:
+
+```bash
+aws cognito-idp sign-up \
+  --client-id <ClientID> \
+  --username user@example.com \
+  --password 'YourSecureP@ss1' \
+  --user-attributes Name=email,Value=user@example.com
+
+aws cognito-idp admin-confirm-sign-up \
+  --user-pool-id <PoolID> \
+  --username user@example.com
+```
+
+## Local Development
+
+```bash
 cp .env.example .env.local
+# Fill in your values
+npm install
 npm run dev
 ```
 
----
+## Environment Variables
 
-## One-click deploy with CloudFormation
+| Variable | Client/Server | Description |
+|---|---|---|
+| NEXT_PUBLIC_APP_NAME | Client | App display name |
+| NEXT_PUBLIC_ASSISTANT_NAME | Client | Assistant display name |
+| NEXT_PUBLIC_GATEWAY_URL | Client | Gateway URL (for display only) |
+| NEXT_PUBLIC_GATEWAY_CHAT_PATH | Client | Gateway chat path |
+| NEXT_PUBLIC_COGNITO_USER_POOL_ID | Client | Cognito Pool ID |
+| NEXT_PUBLIC_COGNITO_CLIENT_ID | Client | Cognito Client ID |
+| NEXT_PUBLIC_COGNITO_REGION | Client | AWS region |
+| GATEWAY_AUTH_TOKEN | Server only | Gateway bearer token |
+| CT_AWS_ACCESS_KEY_ID | Server only | CloudTrail read-only key |
+| CT_AWS_SECRET_ACCESS_KEY | Server only | CloudTrail read-only secret |
+| CT_AWS_REGION | Server only | CloudTrail region |
 
-Use the template in [`infra/amplify-app.template.yaml`](./infra/amplify-app.template.yaml) to provision:
+## Adding Google OAuth
 
-- an Amplify app
-- a production branch
-- the required environment variables
+Pass these additional parameters when deploying:
 
-### Deploy from the AWS Console
-
-1. Open CloudFormation
-2. Create stack with `infra/amplify-app.template.yaml`
-3. Fill in the parameters:
-   - GitHub repository URL
-   - Amplify OAuth token / GitHub token secret reference
-   - OpenClaw gateway public URL
-   - OpenClaw gateway auth token
-4. Deploy
-
-### Quick-create URL pattern
-
-Replace the URL below with your raw GitHub file URL once pushed:
-
-```text
-https://console.aws.amazon.com/cloudformation/home?region=eu-central-1#/stacks/quickcreate?templateURL=<RAW_TEMPLATE_URL>&stackName=xena
+```bash
+ParameterKey=GoogleClientId,ParameterValue=your-google-client-id
+ParameterKey=GoogleClientSecret,ParameterValue=your-google-client-secret
 ```
 
----
+Also add the Cognito domain URL (from stack outputs) to your Google OAuth redirect URIs.
 
-## OpenClaw gateway requirements
+## Stack Outputs
 
-This app expects the gateway HTTP API to expose:
+| Output | Description |
+|---|---|
+| UserPoolId | Cognito User Pool ID |
+| UserPoolClientId | Cognito App Client ID |
+| CognitoDomain | Hosted auth domain |
+| AmplifyAppId | Amplify application ID |
+| MainUrl | Production URL |
+| StagingUrl | Staging URL |
+| ExperimentalUrl | Development URL |
 
-- `POST /v1/chat/completions`
+## Tech Stack
 
-OpenClaw docs: `docs/gateway/openai-http-api.md`
-
-### Example request
-
-```json
-{
-  "model": "openai/gpt-5.4",
-  "stream": true,
-  "messages": [
-    {"role": "system", "content": "You are Xena..."},
-    {"role": "user", "content": "Hey Xena"}
-  ]
-}
-```
-
----
-
-## Public gateway note
-
-If your gateway is currently bound to loopback (`127.0.0.1`) you must expose it safely before Amplify can reach it. Recommended approaches:
-
-- reverse proxy with HTTPS (Nginx / Caddy)
-- trusted proxy mode if you want identity-aware access control
-- firewall allowlist if exposing directly by IP
-
-Do **not** expose the raw gateway to the public internet without understanding the auth/security model. The bearer token is effectively operator access.
-
----
-
-## Styling
-
-The UI uses a dark matrix-inspired palette with cyan/blue neon accents:
-
-- deep black-blue background
-- cyan glow borders
-- glass panels
-- animated typing state
-- explicit status badges for `idle`, `processing`, `typing`, `error`
-
----
+- **Next.js 14** (App Router)
+- **AWS Amplify v6** (client SDK)
+- **AWS Cognito** (authentication)
+- **aws-jwt-verify** (server-side JWT validation)
+- **@aws-amplify/ui-react** (Authenticator component)
+- **@aws-sdk/client-cloudtrail** (activity feed)
 
 ## License
 
