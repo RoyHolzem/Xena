@@ -1,13 +1,13 @@
 AWSTemplateFormatVersion: '2010-09-09'
-Description: LiveCenter Simple Amplify Hosting stack
+Description: Xena Amplify Hosting stack
 
 Parameters:
   AppName:
     Type: String
-    Default: livecenter-simple
+    Default: xena
   RepositoryUrl:
     Type: String
-    Description: GitHub repo URL, e.g. https://github.com/RoyHolzem/LiveCenter-Simple
+    Description: GitHub repo URL, e.g. https://github.com/RoyHolzem/xena
   AccessToken:
     Type: String
     NoEcho: true
@@ -30,7 +30,7 @@ Parameters:
     Default: openai/gpt-5.4
   AppDisplayName:
     Type: String
-    Default: LiveCenter Simple
+    Default: Xena
   AssistantName:
     Type: String
     Default: Xena

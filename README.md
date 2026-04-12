@@ -1,4 +1,4 @@
-# LiveCenter Simple
+# Xena
 
 A production-ready **standalone chat UI** for **Xena** that talks to an **OpenClaw Gateway**. This is **not** the OpenClaw dashboard — it is a custom Next.js frontend with a matrix-blue dark theme, streaming replies, and a real-time presence indicator (`idle`, `processing`, `typing`).
 
@@ -79,7 +79,7 @@ Use the template in [`infra/amplify-app.template.yaml`](./infra/amplify-app.temp
 Replace the URL below with your raw GitHub file URL once pushed:
 
 ```text
-https://console.aws.amazon.com/cloudformation/home?region=eu-central-1#/stacks/quickcreate?templateURL=<RAW_TEMPLATE_URL>&stackName=livecenter-simple
+https://console.aws.amazon.com/cloudformation/home?region=eu-central-1#/stacks/quickcreate?templateURL=<RAW_TEMPLATE_URL>&stackName=xena
 ```
 
 ---

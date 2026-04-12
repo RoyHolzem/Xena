@@ -1,5 +1,5 @@
 {
-  "name": "livecenter-simple",
+  "name": "xena",
   "version": "1.0.0",
   "private": true,
   "description": "Standalone Xena chat UI for OpenClaw gateway, deployable on AWS Amplify.",

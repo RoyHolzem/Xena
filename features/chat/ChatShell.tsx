@@ -20,7 +20,7 @@ const ts = () => {
   return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}:${String(d.getSeconds()).padStart(2, '0')}`;
 };
 
-const GH_REPO = 'RoyHolzem/LiveCenter-Simple';
+const GH_REPO = 'RoyHolzem/Xena';
 const GH_BRANCH = 'experimental';
 const CT_POLL_INTERVAL = 15000; // 15s
 

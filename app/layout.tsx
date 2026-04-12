@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 import './globals.css';
 
 export const metadata: Metadata = {
-  title: 'LiveCenter Simple',
+  title: 'Xena',
   description: 'Standalone matrix-blue chat UI for Xena via OpenClaw Gateway.'
 };
 
