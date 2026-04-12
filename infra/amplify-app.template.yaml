@@ -1,8 +1,10 @@
 AWSTemplateFormatVersion: '2010-09-09'
 Description: >
   Xena - AI Assistant Interface.
-  Provisions Cognito User Pool + SES Email + Amplify Hosting.
+  Provisions Secrets Manager + Cognito User Pool + SES Email + Amplify Hosting.
   Fully redeployable on any AWS account.
+  Gateway token is stored in Secrets Manager and read at runtime.
+  The VPS (RoyClaw) pushes the token to Secrets Manager automatically.
 
 Parameters:
   # == Repository ==
@@ -58,13 +60,16 @@ Parameters:
   GatewayUrl:
     Type: String
     Description: OpenClaw gateway public HTTPS URL
-  GatewayAuthToken:
-    Type: String
-    NoEcho: true
-    Description: Bearer token for the gateway (server-side only)
   GatewayChatPath:
     Type: String
     Default: /v1/chat/completions
+  InitialGatewayToken:
+    Type: String
+    NoEcho: true
+    Default: ''
+    Description: >
+      Initial gateway auth token. Stored in Secrets Manager.
+      After deploy, update via Secrets Manager or have RoyClaw push it.
 
   # == CloudTrail (optional) ==
   CloudTrailAccessKeyId:
@@ -95,8 +100,45 @@ Conditions:
   HasCloudTrail: !And
     - !Not [!Equals [!Ref CloudTrailAccessKeyId, '']]
     - !Not [!Equals [!Ref CloudTrailSecretAccessKey, '']]
+  HasInitialToken: !Not [!Equals [!Ref InitialGatewayToken, '']]
 
 Resources:
+  # ===========================================
+  #  SECRETS MANAGER - Gateway Token
+  # ===========================================
+
+  GatewayTokenSecret:
+    Type: AWS::SecretsManager::Secret
+    Properties:
+      Name: !Sub '${AWS::StackName}/gateway-token'
+      Description: !Sub 'OpenClaw gateway auth token for ${AppDisplayName}'
+      SecretString: !If
+        - HasInitialToken
+        - !Sub '{"token":"${InitialGatewayToken}"}'
+        - '{"token":"placeholder"}'
+
+  # IAM user for the VPS (RoyClaw) to push token updates
+  VpsTokenWriter:
+    Type: AWS::IAM::User
+    Properties:
+      UserName: !Sub '${AWS::StackName}-vps-token-writer'
+      Policies:
+        - PolicyName: WriteGatewayToken
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - 'secretsmanager:PutSecretValue'
+                  - 'secretsmanager:GetSecretValue'
+                Resource: !Ref GatewayTokenSecret
+
+  VpsTokenWriterAccessKey:
+    Type: AWS::IAM::AccessKey
+    Properties:
+      UserName: !Ref VpsTokenWriter
+      Status: Active
+
   # ===========================================
   #  SES EMAIL IDENTITY
   # ===========================================
@@ -110,7 +152,6 @@ Resources:
   #  COGNITO
   # ===========================================
 
-  # IAM role allowing Cognito to send via SES
   CognitoSesSendingRole:
     Type: AWS::IAM::Role
     Properties:
@@ -287,9 +328,9 @@ Resources:
           Value: !Ref GatewayUrl
         - Name: NEXT_PUBLIC_GATEWAY_CHAT_PATH
           Value: !Ref GatewayChatPath
-        # == Server-side (no NEXT_PUBLIC_ prefix) ==
-        - Name: GATEWAY_AUTH_TOKEN
-          Value: !Ref GatewayAuthToken
+        - Name: GATEWAY_TOKEN_SECRET_NAME
+          Value: !Sub '${AWS::StackName}/gateway-token'
+        # == Server-side CloudTrail ==
         - Name: CT_AWS_ACCESS_KEY_ID
           Value: !Ref CloudTrailAccessKeyId
         - Name: CT_AWS_SECRET_ACCESS_KEY
@@ -334,6 +375,18 @@ Outputs:
   SenderEmailIdentityArn:
     Description: SES email identity ARN
     Value: !Ref SenderEmailIdentity
+  GatewayTokenSecretName:
+    Description: Secrets Manager secret name for the gateway token
+    Value: !Sub '${AWS::StackName}/gateway-token'
+  GatewayTokenSecretArn:
+    Description: Secrets Manager secret ARN
+    Value: !Ref GatewayTokenSecret
+  VpsTokenWriterAccessKeyId:
+    Description: IAM access key ID for the VPS to push token updates
+    Value: !Ref VpsTokenWriterAccessKey
+  VpsTokenWriterSecretAccessKey:
+    Description: IAM secret access key for the VPS to push token updates
+    Value: !GetAtt VpsTokenWriterAccessKey.SecretAccessKey
   AmplifyAppId:
     Description: Amplify Application ID
     Value: !GetAtt AmplifyApp.AppId
