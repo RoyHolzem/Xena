@@ -89,7 +89,7 @@ export function ChatShell() {
     let cancelled = false;
     const poll = async () => {
       try {
-        const token = await getAuthToken;
+        const token = await getAuthToken();
         const res = await fetch('/api/aws-activity?minutes=30', {
           headers: { Authorization: `Bearer ${token}` },
         });
@@ -192,7 +192,7 @@ export function ChatShell() {
     ]);
 
     try {
-      const token = await getAuthToken;
+      const token = await getAuthToken();
       const response = await fetch('/api/chat', {
         method: 'POST',
         headers: {
