@@ -1,0 +1,14 @@
+export async function GET() {
+  const diag = {
+    GATEWAY_URL: process.env.NEXT_PUBLIC_GATEWAY_URL ? 'SET' : 'MISSING',
+    CHAT_PATH: process.env.NEXT_PUBLIC_GATEWAY_CHAT_PATH ? 'SET' : 'MISSING',
+    SECRET_NAME: process.env.NEXT_PUBLIC_GATEWAY_TOKEN_SECRET_NAME || 'MISSING',
+    REGION: process.env.NEXT_PUBLIC_COGNITO_REGION || 'MISSING',
+    GATEWAY_AUTH_TOKEN: process.env.GATEWAY_AUTH_TOKEN ? 'SET' : 'MISSING',
+    NEXT_PUBLIC_GATEWAY_AUTH_TOKEN: process.env.NEXT_PUBLIC_GATEWAY_AUTH_TOKEN ? 'SET' : 'MISSING',
+    CT_KEY: process.env.NEXT_PUBLIC_CT_AWS_ACCESS_KEY_ID ? 'SET' : 'MISSING',
+    POOL_ID: process.env.NEXT_PUBLIC_COGNITO_USER_POOL_ID ? 'SET' : 'MISSING',
+    CLIENT_ID: process.env.NEXT_PUBLIC_COGNITO_CLIENT_ID ? 'SET' : 'MISSING',
+  };
+  return Response.json(diag);
+}
