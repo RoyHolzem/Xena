@@ -6,6 +6,7 @@ frontend:
         - npm ci
     build:
       commands:
+        - TOKEN=$(aws secretsmanager get-secret-value --secret-id xena/gateway-token --region eu-central-1 --query SecretString --output text | jq -r .token) && echo "GATEWAY_AUTH_TOKEN=$TOKEN" >> .env.production
         - npm run build
   artifacts:
     baseDirectory: .next

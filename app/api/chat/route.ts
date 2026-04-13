@@ -1,36 +1,11 @@
 import { verifyToken } from '@/lib/cognito-jwt';
-import {
-  SecretsManagerClient,
-  GetSecretValueCommand,
-} from '@aws-sdk/client-secrets-manager';
 
 const GATEWAY_URL = process.env.NEXT_PUBLIC_GATEWAY_URL || '';
 const CHAT_PATH = process.env.NEXT_PUBLIC_GATEWAY_CHAT_PATH || '/v1/chat/completions';
-const SECRET_NAME = process.env.NEXT_PUBLIC_GATEWAY_TOKEN_SECRET_NAME || '';
-const REGION = process.env.NEXT_PUBLIC_COGNITO_REGION || 'eu-central-1';
 
-const secretsClient = new SecretsManagerClient({ region: REGION });
-
-let cachedToken = '';
-let cachedAt = 0;
-const CACHE_TTL = 60_000;
-
-async function getGatewayToken(): Promise<string> {
-  const now = Date.now();
-  if (cachedToken && now - cachedAt < CACHE_TTL) return cachedToken;
-
-  const response = await secretsClient.send(
-    new GetSecretValueCommand({ SecretId: SECRET_NAME })
-  );
-  const parsed = JSON.parse(response.SecretString || '{}');
-  const token = parsed.token || '';
-  if (!token || token === 'placeholder') {
-    throw new Error('Gateway token not configured in Secrets Manager');
-  }
-  cachedToken = token;
-  cachedAt = now;
-  return cachedToken;
-}
+// Token is set in .env.production during Amplify build phase from Secrets Manager.
+// Never exposed to client - no NEXT_PUBLIC_ prefix.
+const GATEWAY_TOKEN = process.env.GATEWAY_AUTH_TOKEN || '';
 
 export async function POST(request: Request) {
   const authHeader = request.headers.get('Authorization');
@@ -50,13 +25,8 @@ export async function POST(request: Request) {
     return Response.json({ error: 'Messages required' }, { status: 400 });
   }
 
-  let gatewayToken: string;
-  try {
-    gatewayToken = await getGatewayToken();
-  } catch (err) {
-    const message = err instanceof Error ? err.message : 'Failed to read gateway token';
-    console.error('[chat]', message);
-    return Response.json({ error: message }, { status: 503 });
+  if (!GATEWAY_TOKEN) {
+    return Response.json({ error: 'Gateway token not configured.' }, { status: 503 });
   }
 
   const gatewayUrl = `${GATEWAY_URL}${CHAT_PATH}`;
@@ -65,7 +35,7 @@ export async function POST(request: Request) {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        Authorization: `Bearer ${gatewayToken}`,
+        Authorization: `Bearer ${GATEWAY_TOKEN}`,
       },
       body: JSON.stringify({
         model: body.model || 'openclaw',
