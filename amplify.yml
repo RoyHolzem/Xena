@@ -6,6 +6,7 @@ frontend:
         - npm ci
     build:
       commands:
+        - echo "GATEWAY_AUTH_TOKEN=" >> .env.production
         - npm run build
   artifacts:
     baseDirectory: .next
