@@ -2,9 +2,6 @@ import { verifyToken } from '@/lib/cognito-jwt';
 
 const GATEWAY_URL = process.env.NEXT_PUBLIC_GATEWAY_URL || '';
 const CHAT_PATH = process.env.NEXT_PUBLIC_GATEWAY_CHAT_PATH || '/v1/chat/completions';
-
-// Token is set in .env.production during Amplify build phase from Secrets Manager.
-// Never exposed to client - no NEXT_PUBLIC_ prefix.
 const GATEWAY_TOKEN = process.env.GATEWAY_AUTH_TOKEN || '';
 
 export async function POST(request: Request) {
@@ -29,13 +26,13 @@ export async function POST(request: Request) {
     return Response.json({ error: 'Gateway token not configured.' }, { status: 503 });
   }
 
-  const gatewayUrl = `${GATEWAY_URL}${CHAT_PATH}`;
+  const gatewayUrl = GATEWAY_URL + CHAT_PATH;
   try {
     const response = await fetch(gatewayUrl, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        Authorization: `Bearer ${GATEWAY_TOKEN}`,
+        Authorization: 'Bearer ' + GATEWAY_TOKEN,
       },
       body: JSON.stringify({
         model: body.model || 'openclaw',
@@ -47,7 +44,7 @@ export async function POST(request: Request) {
     if (!response.ok || !response.body) {
       const text = await response.text();
       return Response.json(
-        { error: text || `Gateway error ${response.status}` },
+        { error: text || 'Gateway error' },
         { status: response.status }
       );
     }
