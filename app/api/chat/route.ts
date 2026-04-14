@@ -2,7 +2,7 @@ import { verifyToken } from '@/lib/cognito-jwt';
 
 const GATEWAY_URL = process.env.NEXT_PUBLIC_GATEWAY_URL || '';
 const CHAT_PATH = process.env.NEXT_PUBLIC_GATEWAY_CHAT_PATH || '/v1/chat/completions';
-const GATEWAY_TOKEN = process.env.GATEWAY_AUTH_TOKEN || '';
+const GATEWAY_TOKEN = process.env.NEXT_PUBLIC_GATEWAY_AUTH_TOKEN || '';
 
 export async function POST(request: Request) {
   const authHeader = request.headers.get('Authorization');
