@@ -1,103 +1,15 @@
-export type Role = 'user' | 'assistant' | 'system';
-
-export type ChatMessage = {
-  id: string;
-  role: Role;
-  content: string;
-  createdAt: string;
-};
-
-export type PresenceState = 'idle' | 'processing' | 'typing' | 'error';
-
-export type AvatarState = 'idle' | 'listening' | 'thinking' | 'speaking' | 'error';
-
-export type ConsoleEntry = {
-  id: string;
-  timestamp: string;
-  type: 'info' | 'action' | 'stream' | 'done' | 'error';
-  message: string;
-};
-
-/* ─── Xena SSE Action Events (gateway-emitted) ─── */
-
-export type XenaActionCategory =
-  | 'lambda'
-  | 'cloudformation'
-  | 'amplify'
-  | 's3'
-  | 'iam'
-  | 'apigateway'
-  | 'dynamodb'
-  | 'ec2'
-  | 'ecs'
-  | 'sns'
-  | 'sqs'
-  | 'cdk'
-  | 'lightsail'
-  | 'cloudfront'
-  | 'route53'
-  | 'cloudwatch'
-  | 'logs'
-  | 'ssm'
-  | 'secretsmanager'
-  | 'kms'
-  | 'cognito'
-  | 'bedrock'
-  | 'sagemaker'
-  | 'general';
-
-export type XenaActionVerb =
-  | 'created'
-  | 'updated'
-  | 'deleted'
-  | 'deployed'
-  | 'invoked'
-  | 'listed'
-  | 'described'
-  | 'configured'
-  | 'scaled'
-  | 'checked'
-  | 'started'
-  | 'stopped'
-  | 'modified'
-  | 'published';
-
-export type XenaActionEvent = {
-  type: 'action';
-  id?: string;
-  verb: XenaActionVerb;
-  category: XenaActionCategory;
-  label: string;
-  resource?: string;
-  region?: string;
-  detail?: string;
-  timestamp?: string;
-};
-
-export type XenaContentEvent = {
-  type: 'content';
-  delta?: string;
-  content?: string;
-};
-
-export type XenaDoneEvent = {
-  type: 'done';
-};
-
-export type XenaSSEEvent = XenaActionEvent | XenaContentEvent | XenaDoneEvent;
-
-/* ─── Activity Log Entry (unified: SSE + CloudTrail) ─── */
-
-export type ActionSource = 'xena' | 'cloudtrail';
-
-export type ActionLogEntry = {
-  id: string;
-  timestamp: string;
-  verb: string;
-  category: string;
-  label: string;
-  resource?: string;
-  region?: string;
-  detail?: string;
-  source: ActionSource;
-};
+/**
+ * Re-exports from @/lib/types for backward compat.
+ * Import from @/lib/types directly in new code.
+ */
+export type {
+  Role,
+  ChatMessage,
+  PresenceState,
+  AvatarState,
+  XenaActionCategory,
+  XenaActionVerb,
+  XenaActionEvent,
+  ActionSource,
+  ActionLogEntry,
+} from '@/lib/types';
