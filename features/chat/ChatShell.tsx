@@ -5,6 +5,7 @@ import { publicConfig } from './chat-config';
 import { useAuthToken } from '../auth/AuthWrapper';
 import { useChat } from './hooks/useChat';
 import { useVoice } from './hooks/useVoice';
+import { useBootSequence } from './hooks/useBootSequence';
 import { useTelecom } from './hooks/useTelecom';
 import { useGitHub } from './hooks/useGitHub';
 import { useCloudTrail } from './hooks/useCloudTrail';
@@ -13,6 +14,7 @@ import { ChatCenter } from './components/ChatCenter';
 import { LeftPanel } from './components/LeftPanel';
 import { RightPanel } from './components/RightPanel';
 import { ModuleDashboard } from './components/ModuleDashboard';
+import { BootScreen } from './components/BootScreen';
 
 import type { TelecomView } from '@/lib/types';
 import styles from './chat-shell.module.css';
@@ -32,6 +34,7 @@ export function ChatShell() {
   const { ghStatus, ghCommit } = useGitHub();
 
   const chat = useChat(addXenaAction);
+  const boot = useBootSequence();
 
   // Voice hook with callbacks that inject into the chat message stream
   const voice = useVoice({
@@ -60,9 +63,21 @@ export function ChatShell() {
   const telecom = useTelecom(activeView, getAuthToken, search);
 
   const isXenaMode = mode === 'xena';
+  const isReady = boot.bootState === 'ready';
 
   return (
     <div className={styles.shell}>
+      {!isReady ? (
+        <BootScreen
+          bootState={boot.bootState}
+          steps={boot.steps}
+          progress={boot.progress}
+          onStart={boot.startBoot}
+          assistantName={assistantName}
+          assistantInitial={assistantInitial}
+        />
+      ) : (
+        <>
       <TopNav
         mode={mode}
         setMode={setMode}
@@ -113,6 +128,8 @@ export function ChatShell() {
           />
         )}
       </div>
+        </>
+      )}
     </div>
   );
 }

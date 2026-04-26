@@ -1141,6 +1141,214 @@
   text-align: center;
 }
 
+/* ─── Boot Screen ─── */
+.bootScreen {
+  height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background:
+    radial-gradient(ellipse 80% 60% at 50% 40%, rgba(56, 97, 251, 0.12), transparent),
+    var(--bg-root);
+  overflow: hidden;
+}
+
+.bootContainer {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 20px;
+  max-width: 440px;
+  width: 100%;
+  padding: 40px;
+}
+
+.bootLogo {
+  position: relative;
+  width: 80px;
+  height: 80px;
+  margin-bottom: 8px;
+}
+
+.bootLogoCircle {
+  width: 80px;
+  height: 80px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: linear-gradient(135deg, var(--accent), var(--cyan));
+  color: var(--bg-root);
+  font-weight: 800;
+  font-size: 32px;
+  box-shadow: 0 0 40px var(--accent-glow);
+  position: relative;
+  z-index: 1;
+}
+
+.bootLogoGlow {
+  position: absolute;
+  inset: -16px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(56, 97, 251, 0.2), transparent 70%);
+  animation: bootGlowPulse 2s ease-in-out infinite;
+}
+
+@keyframes bootGlowPulse {
+  0%, 100% { transform: scale(1); opacity: 0.6; }
+  50% { transform: scale(1.15); opacity: 1; }
+}
+
+.bootTitle {
+  font-size: 28px;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  background: linear-gradient(135deg, var(--text), var(--accent-bright));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  margin: 0;
+}
+
+.bootSubtitle {
+  font-size: 14px;
+  color: var(--text-tertiary);
+  margin: -8px 0 12px;
+}
+
+.bootStartBtn {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 36px;
+  border-radius: 14px;
+  border: 1px solid var(--border-focus);
+  background: linear-gradient(135deg, rgba(56, 97, 251, 0.15), rgba(0, 200, 255, 0.08));
+  color: var(--accent-bright);
+  font-size: 16px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  box-shadow: 0 0 30px rgba(56, 97, 251, 0.15);
+  margin-top: 12px;
+}
+
+.bootStartBtn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 0 50px rgba(56, 97, 251, 0.25);
+  background: linear-gradient(135deg, rgba(56, 97, 251, 0.25), rgba(0, 200, 255, 0.12));
+}
+
+.bootStartBtn:active {
+  transform: translateY(0);
+}
+
+.bootProgressBar {
+  width: 100%;
+  height: 4px;
+  border-radius: 2px;
+  background: rgba(255, 255, 255, 0.06);
+  overflow: hidden;
+  margin-top: 8px;
+}
+
+.bootProgressFill {
+  height: 100%;
+  border-radius: 2px;
+  background: linear-gradient(90deg, var(--accent), var(--cyan));
+  transition: width 0.5s ease;
+  box-shadow: 0 0 12px var(--accent-glow);
+}
+
+.bootProgressError {
+  background: var(--red);
+  box-shadow: 0 0 12px var(--red-glow);
+}
+
+.bootSteps {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 12px;
+}
+
+.bootStep {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  border-radius: 8px;
+  font-size: 13px;
+  transition: all 0.3s ease;
+}
+
+.bootStepRunning {
+  color: var(--accent-bright);
+  background: rgba(56, 97, 251, 0.06);
+}
+
+.bootStepRunning .bootStepIcon {
+  animation: stepPulse 1s ease-in-out infinite;
+}
+
+.bootStepOk {
+  color: var(--green);
+}
+
+.bootStepOk .bootStepIcon {
+  font-weight: 700;
+}
+
+.bootStepFail {
+  color: var(--red);
+}
+
+.bootStepFail .bootStepIcon {
+  font-weight: 700;
+}
+
+@keyframes stepPulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.3; }
+}
+
+.bootStepIcon {
+  width: 16px;
+  text-align: center;
+  font-size: 12px;
+  flex-shrink: 0;
+}
+
+.bootStepLabel {
+  flex: 1;
+  font-weight: 500;
+}
+
+.bootStepDetail {
+  font-size: 11px;
+  font-family: 'SF Mono', 'Fira Code', monospace;
+  color: var(--text-tertiary);
+  opacity: 0.7;
+}
+
+.bootRetryBtn {
+  padding: 10px 28px;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 64, 87, 0.3);
+  background: rgba(255, 64, 87, 0.1);
+  color: var(--red);
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  margin-top: 8px;
+  transition: all 0.2s ease;
+}
+
+.bootRetryBtn:hover {
+  background: rgba(255, 64, 87, 0.15);
+  border-color: rgba(255, 64, 87, 0.5);
+}
+
 /* ─── Keyframes ─── */
 @keyframes msgSlideIn {
   from {
