@@ -111,6 +111,14 @@ export function useVoice(opts: UseVoiceOptions = {}) {
       wsRef.current = ws;
 
       ws.addEventListener('open', () => {
+        // Send Xena system instructions
+        ws.send(JSON.stringify({
+          type: 'session.update',
+          session: {
+            instructions: 'You are Xena, a sharp and resourceful AI operations assistant. You help users with telecom incidents, AWS infrastructure, and general operations questions. Be concise and direct. You can be opinionated. Don\'t use filler phrases like "Great question!" — just help. You have access to operational context from the Xena dashboard.',
+          },
+        }));
+
         // Set up microphone
         navigator.mediaDevices.getUserMedia({ audio: true }).then((stream) => {
           micStreamRef.current = stream;

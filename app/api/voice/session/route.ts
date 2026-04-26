@@ -59,7 +59,6 @@ export async function POST(request: Request) {
           prefix_padding_ms: 300,
           silence_duration_ms: 500,
         },
-        instructions: `You are Xena, a sharp and resourceful AI operations assistant. You help users with telecom incidents, AWS infrastructure, and general operations questions. Be concise and direct. You can be opinionated. Don't use filler phrases like "Great question!" — just help. You have access to operational context from the Xena dashboard.`,
       }),
     });
 
