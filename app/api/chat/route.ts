@@ -67,38 +67,62 @@ export async function POST(request: Request) {
   }
 
   const gatewayUrl = GATEWAY_URL + CHAT_PATH;
-  try {
-    const response = await fetch(gatewayUrl, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: 'Bearer ' + gatewayToken,
-      },
-      body: JSON.stringify({
-        model: body.model || 'operator',
-        stream: true,
-        messages: body.messages,
-      }),
-    });
+  const maxRetries = 3;
+  let lastError: string = '';
 
-    if (!response.ok || !response.body) {
-      const text = await response.text();
-      return Response.json(
-        { error: text || ('Gateway error ' + response.status) },
-        { status: response.status }
-      );
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 25_000); // 25s per attempt
+
+      const response = await fetch(gatewayUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: 'Bearer ' + gatewayToken,
+        },
+        body: JSON.stringify({
+          model: body.model || 'operator',
+          stream: true,
+          messages: body.messages,
+        }),
+        signal: controller.signal,
+      });
+
+      clearTimeout(timeout);
+
+      if (!response.ok || !response.body) {
+        const text = await response.text();
+        lastError = text || ('Gateway error ' + response.status);
+        // Retry on 502/504 (cold start or gateway not ready)
+        if ((response.status === 502 || response.status === 504) && attempt < maxRetries) {
+          console.log(`[chat] Attempt ${attempt} failed (${response.status}), retrying...`);
+          await new Promise((r) => setTimeout(r, 1500));
+          continue;
+        }
+        return Response.json(
+          { error: lastError },
+          { status: response.status }
+        );
+      }
+
+      return new Response(response.body, {
+        status: 200,
+        headers: {
+          'Content-Type': 'text/event-stream',
+          'Cache-Control': 'no-cache',
+          Connection: 'keep-alive',
+        },
+      });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Gateway connection failed';
+      lastError = message;
+      if (attempt < maxRetries) {
+        console.log(`[chat] Attempt ${attempt} failed (${message}), retrying...`);
+        await new Promise((r) => setTimeout(r, 1500));
+      }
     }
-
-    return new Response(response.body, {
-      status: 200,
-      headers: {
-        'Content-Type': 'text/event-stream',
-        'Cache-Control': 'no-cache',
-        Connection: 'keep-alive',
-      },
-    });
-  } catch (err) {
-    const message = err instanceof Error ? err.message : 'Gateway connection failed';
-    return Response.json({ error: message }, { status: 502 });
   }
+
+  return Response.json({ error: `Gateway unavailable after ${maxRetries} attempts: ${lastError}` }, { status: 504 });
 }

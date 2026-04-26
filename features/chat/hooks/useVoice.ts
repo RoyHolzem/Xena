@@ -115,6 +115,10 @@ export function useVoice(opts: UseVoiceOptions = {}) {
 
           if (!chatRes.ok || !chatRes.body) {
             const errText = await chatRes.text();
+            // Check if it's a retryable gateway error
+            if (chatRes.status === 502 || chatRes.status === 504) {
+              throw new Error('Backend is waking up — please try again in a few seconds');
+            }
             throw new Error(errText || `Chat error ${chatRes.status}`);
           }
 
