@@ -104,7 +104,7 @@ export function useVoice(opts: UseVoiceOptions = {}) {
 
       // Open WebSocket to OpenAI Realtime API
       const ws = new WebSocket(
-        'wss://api.openai.com/v1/realtime?session.type=realtime',
+        'wss://api.openai.com/v1/realtime?model=gpt-realtime&session.type=realtime',
         [
           'realtime',
           `openai-insecure-api-key.${ephemeralToken}`,
