@@ -8,6 +8,7 @@ export type VoiceState = 'disconnected' | 'connecting' | 'connected' | 'listenin
 interface UseVoiceOptions {
   onTranscript?: (text: string, isFinal: boolean) => void;
   onAssistantText?: (text: string) => void;
+  onResponseStart?: () => void;
   onError?: (error: string) => void;
 }
 
@@ -130,6 +131,9 @@ export function useVoice(opts: UseVoiceOptions = {}) {
                   type: 'audio/pcm',
                   rate: 24000,
                 },
+                transcription: {
+                  model: 'whisper-1',
+                },
                 turn_detection: {
                   type: 'server_vad',
                   threshold: 0.5,
@@ -231,6 +235,8 @@ export function useVoice(opts: UseVoiceOptions = {}) {
           // ─── Response lifecycle (GA event names) ───
           case 'response.created':
             setState('speaking');
+            // Reset assistant buffer so each response gets its own chat bubble
+            opts.onResponseStart?.();
             break;
 
           // Assistant audio output

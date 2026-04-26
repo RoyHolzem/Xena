@@ -39,6 +39,10 @@ export function ChatShell() {
       chat.addVoiceUserMessage(text);
     }, [chat]),
 
+    onResponseStart: useCallback(() => {
+      chat.resetVoiceAssistant();
+    }, [chat]),
+
     onAssistantText: useCallback((delta: string) => {
       chat.appendVoiceAssistantDelta(delta);
     }, [chat]),
