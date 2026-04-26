@@ -75,7 +75,7 @@ export async function POST(request: Request) {
         Authorization: 'Bearer ' + gatewayToken,
       },
       body: JSON.stringify({
-        model: body.model || 'openclaw',
+        model: body.model || 'operator',
         stream: true,
         messages: body.messages,
       }),

@@ -22,11 +22,14 @@ export function useVoice(opts: UseVoiceOptions = {}) {
   const micSourceRef = useRef<MediaStreamAudioSourceNode | null>(null);
   const micProcessorRef = useRef<ScriptProcessorNode | null>(null);
   const speakerQueueRef = useRef<Int16Array[]>([]);
+  const audioBufferRef = useRef<Int16Array[]>([]);
   const isPlayingRef = useRef(false);
-  const playStartTimeRef = useRef(0);
   const nextPlayTimeRef = useRef(0);
   const stateRef = useRef(state);
-  const sessionIdRef = useRef<string | null>(null);
+  const sessionReadyRef = useRef(false);
+
+  // 100ms minimum buffer at 24kHz = 2400 samples
+  const SAMPLES_PER_BUFFER = 2400;
 
   stateRef.current = state;
 
@@ -69,18 +72,19 @@ export function useVoice(opts: UseVoiceOptions = {}) {
     processNext();
   }, []);
 
-  // Connect to OpenAI Realtime API
+  // Connect to OpenAI Realtime API (GA)
   const connect = useCallback(async () => {
     if (wsRef.current?.readyState === WebSocket.OPEN) return;
 
     setState('connecting');
     setError(null);
+    sessionReadyRef.current = false;
 
     try {
       const token = await getAuthToken();
       if (!token) throw new Error('Not authenticated');
 
-      // Get ephemeral session token from our backend
+      // Get ephemeral client secret from our backend
       const sessionRes = await fetch('/api/voice/session', {
         method: 'POST',
         headers: {
@@ -95,16 +99,14 @@ export function useVoice(opts: UseVoiceOptions = {}) {
       }
 
       const sessionData = await sessionRes.json();
-      const ephemeralToken = sessionData.client_secret?.value;
-      sessionIdRef.current = sessionData.id;
+      const ephemeralToken = sessionData.value || sessionData.client_secret?.value;
       if (!ephemeralToken) throw new Error('No session token received');
 
-      // Open WebSocket to OpenAI Realtime API
+      // Open WebSocket to OpenAI Realtime GA API
       const ws = new WebSocket(
-        'wss://api.openai.com/v1/realtime?model=gpt-4o-realtime-preview-2025-06-20',
+        'wss://api.openai.com/v1/realtime?model=gpt-realtime',
         [
           'realtime',
-          'openai-beta.realtime-v1',
           `openai-insecure-api-key.${ephemeralToken}`,
         ]
       );
@@ -112,105 +114,166 @@ export function useVoice(opts: UseVoiceOptions = {}) {
       wsRef.current = ws;
 
       ws.addEventListener('open', () => {
-        // Set up microphone
-        navigator.mediaDevices.getUserMedia({ audio: true }).then((stream) => {
-          micStreamRef.current = stream;
-          const ctx = new AudioContext({ sampleRate: 24000 });
-          audioCtxRef.current = ctx;
-          nextPlayTimeRef.current = 0;
+        console.log('[voice] WebSocket connected');
 
-          const source = ctx.createMediaStreamSource(stream);
-          micSourceRef.current = source;
-
-          // Use ScriptProcessor to capture raw PCM (24kHz, mono, 16-bit)
-          const processor = ctx.createScriptProcessor(4096, 1, 1);
-          micProcessorRef.current = processor;
-
-          source.connect(processor);
-          processor.connect(ctx.destination);
-
-          processor.onaudioprocess = (e) => {
-            if (ws.readyState !== WebSocket.OPEN) return;
-            const float32 = e.inputBuffer.getChannelData(0);
-            const int16 = new Int16Array(float32.length);
-            for (let i = 0; i < float32.length; i++) {
-              const s = Math.max(-1, Math.min(1, float32[i]));
-              int16[i] = s < 0 ? s * 0x8000 : s * 0x7FFF;
-            }
-            const base64 = btoa(
-              String.fromCharCode(...new Uint8Array(int16.buffer))
-            );
-            ws.send(
-              JSON.stringify({
-                type: 'input_audio_buffer.append',
-                audio: base64,
-              })
-            );
-          };
-
-          setState('connected');
-        }).catch((err) => {
-          setError('Microphone access denied');
-          setState('error');
-          opts.onError?.('Microphone access denied');
-        });
+        // Configure session for GA Realtime API
+        ws.send(JSON.stringify({
+          type: 'session.update',
+          session: {
+            type: 'realtime',
+            model: 'gpt-realtime',
+            output_modalities: ['audio'],
+            instructions: 'You are Xena, a sharp and resourceful AI operations assistant. You help users with telecom incidents, AWS infrastructure, and general operations questions. Be concise and direct. You can be opinionated. Don\'t use filler phrases like "Great question!" — just help. You have access to operational context from the Xena dashboard.',
+            audio: {
+              input: {
+                format: {
+                  type: 'audio/pcm',
+                  rate: 24000,
+                },
+                turn_detection: {
+                  type: 'server_vad',
+                  threshold: 0.5,
+                  prefix_padding_ms: 300,
+                  silence_duration_ms: 500,
+                },
+              },
+              output: {
+                format: {
+                  type: 'audio/pcm',
+                  rate: 24000,
+                },
+                voice: 'alloy',
+              },
+            },
+          },
+        }));
       });
 
       ws.addEventListener('message', (event) => {
         const data = JSON.parse(event.data);
+        console.log('[voice] event:', data.type);
 
         switch (data.type) {
-          // Session configured
+          // ─── Session lifecycle ───
           case 'session.created':
-          case 'session.updated':
+            console.log('[voice] Session created:', data.session?.id);
             break;
 
-          // User started speaking (VAD)
+          case 'session.updated':
+            console.log('[voice] Session updated');
+            sessionReadyRef.current = true;
+
+            // Now set up microphone after session is configured
+            navigator.mediaDevices.getUserMedia({ audio: true }).then((stream) => {
+              micStreamRef.current = stream;
+              const ctx = new AudioContext({ sampleRate: 24000 });
+              audioCtxRef.current = ctx;
+              nextPlayTimeRef.current = 0;
+
+              const source = ctx.createMediaStreamSource(stream);
+              micSourceRef.current = source;
+
+              // Buffer audio to at least 100ms before sending
+              const processor = ctx.createScriptProcessor(4096, 1, 1);
+              micProcessorRef.current = processor;
+
+              source.connect(processor);
+              processor.connect(ctx.destination);
+
+              processor.onaudioprocess = (e) => {
+                if (ws.readyState !== WebSocket.OPEN) return;
+                const float32 = e.inputBuffer.getChannelData(0);
+                const int16 = new Int16Array(float32.length);
+                for (let i = 0; i < float32.length; i++) {
+                  const s = Math.max(-1, Math.min(1, float32[i]));
+                  int16[i] = s < 0 ? s * 0x8000 : s * 0x7FFF;
+                }
+                audioBufferRef.current.push(int16);
+
+                const totalSamples = audioBufferRef.current.reduce((sum, buf) => sum + buf.length, 0);
+                if (totalSamples >= SAMPLES_PER_BUFFER) {
+                  const merged = new Int16Array(totalSamples);
+                  let offset = 0;
+                  for (const buf of audioBufferRef.current) {
+                    merged.set(buf, offset);
+                    offset += buf.length;
+                  }
+                  audioBufferRef.current = [];
+
+                  const base64 = btoa(
+                    String.fromCharCode(...new Uint8Array(merged.buffer))
+                  );
+                  ws.send(JSON.stringify({
+                    type: 'input_audio_buffer.append',
+                    audio: base64,
+                  }));
+                }
+              };
+
+              setState('connected');
+            }).catch((err) => {
+              console.error('[voice] Mic error:', err);
+              setError('Microphone access denied');
+              setState('error');
+              opts.onError?.('Microphone access denied');
+            });
+            break;
+
+          // ─── VAD events ───
           case 'input_audio_buffer.speech_started':
             setState('listening');
             break;
 
-          // User stopped speaking (VAD)
           case 'input_audio_buffer.speech_stopped':
-            // Commit the audio buffer for processing
-            ws.send(JSON.stringify({ type: 'input_audio_buffer.commit' }));
+            // Server VAD auto-commits and triggers response
             break;
 
-          // Conversation item: user transcript
-          case 'conversation.item.input_audio_transcription.completed':
-            if (data.transcript) {
-              opts.onTranscript?.(data.transcript, true);
-            }
-            break;
-
-          // Response started
+          // ─── Response lifecycle (GA event names) ───
           case 'response.created':
             setState('speaking');
             break;
 
-          // Audio delta from assistant
-          case 'response.audio.delta': {
-            const binary = atob(data.delta);
-            const bytes = new Uint8Array(binary.length);
-            for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
-            const int16 = new Int16Array(bytes.buffer);
-            speakerQueueRef.current.push(int16);
-            playQueuedAudio();
+          // Assistant audio output
+          case 'response.output_audio.delta': {
+            const delta = data.delta;
+            if (delta) {
+              const binary = atob(delta);
+              const bytes = new Uint8Array(binary.length);
+              for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+              const int16 = new Int16Array(bytes.buffer);
+              speakerQueueRef.current.push(int16);
+              playQueuedAudio();
+            }
             break;
           }
 
-          // Audio done
-          case 'response.audio.done':
+          case 'response.output_audio.done':
             break;
 
-          // Text content from assistant
-          case 'response.text.delta':
-            if (data.delta) {
-              opts.onAssistantText?.(data.delta);
+          // Assistant transcript output (text of what model said)
+          case 'response.output_audio_transcript.delta': {
+            const transcriptDelta = data.delta;
+            if (transcriptDelta) {
+              opts.onAssistantText?.(transcriptDelta);
             }
             break;
+          }
 
+          // User transcript (what user said, transcribed)
+          case 'conversation.item.input_audio_transcription.completed': {
+            // Still supported in GA for backwards compat
+            if (data.transcript) {
+              opts.onTranscript?.(data.transcript, true);
+            }
+            break;
+          }
+
+          case 'response.content_part.added':
           case 'response.content_part.done':
+          case 'response.output_item.added':
+          case 'response.output_item.done':
+          case 'conversation.item.added':
+          case 'conversation.item.done':
             break;
 
           // Response completed
@@ -218,23 +281,35 @@ export function useVoice(opts: UseVoiceOptions = {}) {
             setState('connected');
             break;
 
-          // Error
+          // Rate limits
+          case 'rate_limits.updated':
+            break;
+
+          // ─── Errors ───
           case 'error':
-            console.error('[voice] Realtime API error:', data.error);
+            console.error('[voice] Realtime API error:', data.error || data);
             setError(data.error?.message || 'Voice error');
-            setState('error');
             opts.onError?.(data.error?.message || 'Voice error');
+            break;
+
+          default:
+            // Log unknown events for debugging
+            console.log('[voice] unhandled event:', data.type, data);
             break;
         }
       });
 
-      ws.addEventListener('error', () => {
+      ws.addEventListener('error', (event) => {
+        console.error('[voice] WebSocket error:', event);
         setError('WebSocket connection failed');
         setState('error');
       });
 
-      ws.addEventListener('close', () => {
-        setState('disconnected');
+      ws.addEventListener('close', (event) => {
+        console.log('[voice] WebSocket closed:', event.code, event.reason);
+        if (stateRef.current !== 'disconnected') {
+          setState('disconnected');
+        }
       });
     } catch (err: any) {
       setError(err.message);
@@ -244,6 +319,7 @@ export function useVoice(opts: UseVoiceOptions = {}) {
   }, [getAuthToken, opts, playQueuedAudio]);
 
   const disconnect = useCallback(() => {
+    audioBufferRef.current = [];
     micProcessorRef.current?.disconnect();
     micSourceRef.current?.disconnect();
     micStreamRef.current?.getTracks().forEach((t) => t.stop());
@@ -258,6 +334,7 @@ export function useVoice(opts: UseVoiceOptions = {}) {
     audioCtxRef.current = null;
     speakerQueueRef.current = [];
     isPlayingRef.current = false;
+    sessionReadyRef.current = false;
     setState('disconnected');
   }, []);
 
