@@ -131,7 +131,7 @@ export function useChat(addXenaAction: (event: import('@/lib/types').XenaActionE
           Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({
-          model: 'operator',
+          model: 'openclaw/operator',
           stream: true,
           messages: [
             ...messages
