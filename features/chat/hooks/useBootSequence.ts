@@ -3,7 +3,7 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { useAuthToken } from '../../auth/AuthWrapper';
 
-type BootStep = {
+export type BootStep = {
   label: string;
   status: 'pending' | 'running' | 'ok' | 'fail';
   detail?: string;
