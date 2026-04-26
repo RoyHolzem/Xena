@@ -3,7 +3,9 @@ import {
   SecretsManagerClient,
   GetSecretValueCommand,
 } from '@aws-sdk/client-secrets-manager';
-import { STSClient, GetCallerIdentityCommand } from '@aws-sdk/client-sts';
+
+// Amplify SSR (Lambda) max execution — 60s for streaming LLM responses
+export const maxDuration = 60;
 
 const GATEWAY_URL = process.env.NEXT_PUBLIC_GATEWAY_URL || '';
 const CHAT_PATH = process.env.NEXT_PUBLIC_GATEWAY_CHAT_PATH || '/v1/chat/completions';
@@ -11,25 +13,15 @@ const SECRET_NAME = 'xena/gateway-token';
 const REGION = 'eu-central-1';
 
 const secretsClient = new SecretsManagerClient({ region: REGION });
-const stsClient = new STSClient({ region: REGION });
 
 let cachedToken = '';
 let cachedAt = 0;
-const CACHE_TTL = 60_000;
+const CACHE_TTL = 300_000; // 5 min cache
 
 async function getGatewayToken(): Promise<string> {
   const now = Date.now();
   if (cachedToken && now - cachedAt < CACHE_TTL) return cachedToken;
 
-  // Step 3: Log who we're running as
-  try {
-    const identity = await stsClient.send(new GetCallerIdentityCommand({}));
-    console.log('[chat] Running as:', identity.Arn, 'Account:', identity.Account);
-  } catch (err: any) {
-    console.error('[chat] Cannot get caller identity:', err.message);
-  }
-
-  // Step 4: Fetch the secret
   try {
     const response = await secretsClient.send(
       new GetSecretValueCommand({ SecretId: SECRET_NAME })
@@ -39,8 +31,7 @@ async function getGatewayToken(): Promise<string> {
     if (!token || token === 'placeholder') {
       throw new Error('Token is placeholder or empty');
     }
-    // Step 5: Log success without exposing the secret
-    console.log('[chat] Secret loaded successfully, length:', token.length);
+    console.log('[chat] Secret loaded, length:', token.length);
     cachedToken = token;
     cachedAt = now;
     return cachedToken;
