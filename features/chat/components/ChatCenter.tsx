@@ -43,28 +43,30 @@ export function ChatCenter({
   onToggleVoice,
   voiceActive,
 }: ChatCenterProps) {
-  // Determine if we should show voice-specific avatar state
+  // Determine voice-specific avatar state
   const effectiveAvatarState = voiceActive
-    ? voiceState === 'listening'
+    ? voiceState === 'recording'
       ? 'listening'
-      : voiceState === 'speaking'
-        ? 'speaking'
-        : voiceState === 'connecting'
+      : voiceState === 'transcribing'
+        ? 'thinking'
+        : voiceState === 'responding'
           ? 'thinking'
-          : voiceState === 'error'
-            ? 'error'
-            : avatarState
+          : voiceState === 'playing'
+            ? 'speaking'
+            : voiceState === 'error'
+              ? 'error'
+              : avatarState
     : avatarState;
 
   const effectiveStatusLabel = voiceActive
-    ? voiceState === 'connecting'
-      ? 'Connecting'
-      : voiceState === 'connected'
-        ? 'Voice Ready'
-        : voiceState === 'listening'
-          ? 'Listening'
-          : voiceState === 'speaking'
-            ? 'Speaking'
+    ? voiceState === 'recording'
+      ? 'Recording...'
+      : voiceState === 'transcribing'
+        ? 'Transcribing...'
+        : voiceState === 'responding'
+          ? 'Thinking...'
+        : voiceState === 'playing'
+            ? 'Speaking...'
             : voiceState === 'error'
               ? 'Voice Error'
               : statusLabel
@@ -132,43 +134,41 @@ export function ChatCenter({
             className={cn(
               styles.chatVoiceBtn,
               voiceActive && styles.chatVoiceBtnActive,
-              voiceState === 'listening' && styles.chatVoiceBtnListening,
-              voiceState === 'speaking' && styles.chatVoiceBtnSpeaking,
-              voiceState === 'connecting' && styles.chatVoiceBtnConnecting,
+              voiceState === 'recording' && styles.chatVoiceBtnListening,
+              voiceState === 'playing' && styles.chatVoiceBtnSpeaking,
+              (voiceState === 'transcribing' || voiceState === 'responding') && styles.chatVoiceBtnConnecting,
             )}
             onClick={onToggleVoice}
-            title={voiceActive ? 'Stop voice chat' : 'Start voice chat'}
+            title={
+              !voiceActive ? 'Start voice chat'
+              : voiceState === 'recording' ? 'Stop recording'
+              : 'Cancel'
+            }
           >
-            {voiceActive ? (
-              voiceState === 'connecting' ? (
-                // Connecting spinner
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={styles.spin}>
-                  <path d="M21 12a9 9 0 1 1-6.219-8.56" />
-                </svg>
-              ) : voiceState === 'listening' ? (
-                // Listening: filled mic with rings
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" stroke="none">
-                  <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/>
-                  <path d="M19 10v2a7 7 0 0 1-14 0v-2" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
-                  <line x1="12" y1="19" x2="12" y2="23" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
-                  <line x1="8" y1="23" x2="16" y2="23" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
-                </svg>
-              ) : (
-                // Active: mic with slash area
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/>
-                  <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
-                  <line x1="12" y1="19" x2="12" y2="23"/>
-                  <line x1="8" y1="23" x2="16" y2="23"/>
-                </svg>
-              )
-            ) : (
+            {!voiceActive ? (
               // Inactive: mic outline
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/>
                 <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
                 <line x1="12" y1="19" x2="12" y2="23"/>
                 <line x1="8" y1="23" x2="16" y2="23"/>
+              </svg>
+            ) : voiceState === 'recording' ? (
+              // Recording: filled stop square
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                <rect x="6" y="6" width="12" height="12" rx="2"/>
+              </svg>
+            ) : voiceState === 'playing' ? (
+              // Playing: speaker icon
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/>
+                <path d="M15.54 8.46a5 5 0 0 1 0 7.07"/>
+                <path d="M19.07 4.93a10 10 0 0 1 0 14.14"/>
+              </svg>
+            ) : (
+              // Processing: spinner
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={styles.spin}>
+                <path d="M21 12a9 9 0 1 1-6.219-8.56"/>
               </svg>
             )}
           </button>
@@ -196,7 +196,11 @@ export function ChatCenter({
         </div>
         <div className={styles.chatComposerHint}>
           {voiceActive
-            ? voiceState === 'listening' ? '🎙️ Listening...' : voiceState === 'speaking' ? '🔊 Speaking...' : 'Voice mode — click mic to stop'
+            ? voiceState === 'recording' ? '🎙️ Recording — tap to stop'
+              : voiceState === 'transcribing' ? '✨ Transcribing...'
+              : voiceState === 'responding' ? '🧠 Thinking...'
+              : voiceState === 'playing' ? '🔊 Speaking...'
+              : 'Processing...'
             : 'Shift + Enter for newline'
           }
         </div>

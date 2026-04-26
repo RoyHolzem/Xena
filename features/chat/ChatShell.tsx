@@ -35,7 +35,7 @@ export function ChatShell() {
 
   // Voice hook with callbacks that inject into the chat message stream
   const voice = useVoice({
-    onTranscript: useCallback((text: string) => {
+    onUserTranscript: useCallback((text: string) => {
       chat.addVoiceUserMessage(text);
     }, [chat]),
 
@@ -43,9 +43,13 @@ export function ChatShell() {
       chat.resetVoiceAssistant();
     }, [chat]),
 
-    onAssistantText: useCallback((delta: string) => {
+    onAssistantDelta: useCallback((delta: string) => {
       chat.appendVoiceAssistantDelta(delta);
     }, [chat]),
+
+    onResponseDone: useCallback(() => {
+      // no-op, response fully streamed
+    }, []),
 
     onError: useCallback((err: string) => {
       console.error('[voice]', err);
