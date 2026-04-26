@@ -46,7 +46,7 @@ export async function POST(request: Request) {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'gpt-4o-realtime-preview-2025-06-20',
+        model: 'gpt-realtime',
         voice: 'alloy',
         input_audio_format: 'pcm16',
         output_audio_format: 'pcm16',
