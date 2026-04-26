@@ -126,11 +126,91 @@ export function useVoice(opts: UseVoiceOptions = {}) {
             throw new Error(errText || `Chat error ${chatRes.status}`);
           }
 
-          // Stream text response
+          // Stream text response, break into sentences for synced TTS
           const reader = chatRes.body.getReader();
           const decoder = new TextDecoder();
           let fullResponse = '';
+          let unspokenText = ''; // text waiting to be spoken
           let buffer = '';
+          const sentenceQueue: string[] = [];
+          let isSpeaking = false;
+
+          // Sentence boundary regex — split on . ! ? followed by space or end
+          const sentenceEnd = /([.!?])\s+/g;
+
+          const speakNextSentence = async () => {
+            if (isSpeaking || sentenceQueue.length === 0) return;
+            isSpeaking = true;
+            const sentence = sentenceQueue.shift()!;
+
+            try {
+              const ttsRes = await fetch('/api/voice/tts', {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                  Authorization: `Bearer ${token}`,
+                },
+                body: JSON.stringify({ text: sentence }),
+              });
+
+              if (ttsRes.ok && ttsRes.body) {
+                const audioBlob = await ttsRes.blob();
+                const audioUrl = URL.createObjectURL(audioBlob);
+                const audio = new Audio(audioUrl);
+
+                await new Promise<void>((resolve) => {
+                  audio.onended = () => { URL.revokeObjectURL(audioUrl); resolve(); };
+                  audio.onerror = () => { URL.revokeObjectURL(audioUrl); resolve(); };
+                  audio.play().catch(resolve);
+                });
+              }
+            } catch {
+              // TTS failed for this sentence, move on
+            }
+
+            isSpeaking = false;
+            // Speak next queued sentence
+            if (sentenceQueue.length > 0) {
+              speakNextSentence();
+            } else if (streamDone) {
+              // All done
+              setState('disconnected');
+            }
+          };
+
+          let streamDone = false;
+
+          const flushSentences = (force: boolean) => {
+            // Extract complete sentences from unspokenText
+            let match;
+            let lastEnd = -1;
+            sentenceEnd.lastIndex = 0;
+            while ((match = sentenceEnd.exec(unspokenText)) !== null) {
+              lastEnd = match.index + match[1].length;
+            }
+
+            if (lastEnd > 0) {
+              const toSpeak = unspokenText.substring(0, lastEnd).trim();
+              unspokenText = unspokenText.substring(lastEnd).trimStart();
+              if (toSpeak) {
+                sentenceQueue.push(toSpeak);
+                if (!isSpeaking) {
+                  setState('playing');
+                  speakNextSentence();
+                }
+              }
+            }
+
+            // On force (stream done), speak whatever remains
+            if (force && unspokenText.trim()) {
+              sentenceQueue.push(unspokenText.trim());
+              unspokenText = '';
+              if (!isSpeaking) {
+                setState('playing');
+                speakNextSentence();
+              }
+            }
+          };
 
           while (true) {
             const { done, value } = await reader.read();
@@ -150,7 +230,9 @@ export function useVoice(opts: UseVoiceOptions = {}) {
                 const delta = parsed.choices?.[0]?.delta?.content ?? parsed.choices?.[0]?.message?.content;
                 if (delta) {
                   fullResponse += delta;
+                  unspokenText += delta;
                   opts.onAssistantDelta?.(delta);
+                  flushSentences(false);
                 }
               } catch {
                 // ignore
@@ -158,47 +240,14 @@ export function useVoice(opts: UseVoiceOptions = {}) {
             }
           }
 
+          // Flush any remaining text
+          streamDone = true;
+          flushSentences(true);
+
           opts.onResponseDone?.();
 
-          // Step 3: TTS — speak the response
-          if (fullResponse.trim()) {
-            setState('playing');
-            try {
-              const ttsRes = await fetch('/api/voice/tts', {
-                method: 'POST',
-                headers: {
-                  'Content-Type': 'application/json',
-                  Authorization: `Bearer ${token}`,
-                },
-                body: JSON.stringify({ text: fullResponse.trim() }),
-              });
-
-              if (ttsRes.ok && ttsRes.body) {
-                const audioBlob = await ttsRes.blob();
-                const audioUrl = URL.createObjectURL(audioBlob);
-                const audio = new Audio(audioUrl);
-                audioElRef.current = audio;
-
-                audio.onended = () => {
-                  URL.revokeObjectURL(audioUrl);
-                  audioElRef.current = null;
-                  setState('disconnected');
-                };
-
-                audio.onerror = () => {
-                  URL.revokeObjectURL(audioUrl);
-                  audioElRef.current = null;
-                  setState('disconnected');
-                };
-
-                await audio.play();
-              } else {
-                setState('disconnected');
-              }
-            } catch {
-              setState('disconnected');
-            }
-          } else {
+          // If nothing to speak (empty response or TTS already done), disconnect
+          if (sentenceQueue.length === 0 && !isSpeaking) {
             setState('disconnected');
           }
         } catch (err: any) {
