@@ -1,9 +1,10 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
 import { publicConfig } from './chat-config';
 import { useAuthToken } from '../auth/AuthWrapper';
 import { useChat } from './hooks/useChat';
+import { useVoice } from './hooks/useVoice';
 import { useTelecom } from './hooks/useTelecom';
 import { useGitHub } from './hooks/useGitHub';
 import { useCloudTrail } from './hooks/useCloudTrail';
@@ -15,6 +16,8 @@ import { ModuleDashboard } from './components/ModuleDashboard';
 
 import type { TelecomView } from '@/lib/types';
 import styles from './chat-shell.module.css';
+
+const nowIso = () => new Date().toISOString();
 
 export function ChatShell() {
   const { assistantName } = publicConfig;
@@ -29,6 +32,21 @@ export function ChatShell() {
   const { ghStatus, ghCommit } = useGitHub();
 
   const chat = useChat(addXenaAction);
+
+  // Voice hook with callbacks that inject into the chat message stream
+  const voice = useVoice({
+    onTranscript: useCallback((text: string) => {
+      chat.addVoiceUserMessage(text);
+    }, [chat]),
+
+    onAssistantText: useCallback((delta: string) => {
+      chat.appendVoiceAssistantDelta(delta);
+    }, [chat]),
+
+    onError: useCallback((err: string) => {
+      console.error('[voice]', err);
+    }, []),
+  });
 
   // Telecom data for contextual side panels in Xena mode
   const telecom = useTelecom(activeView, getAuthToken, search);
@@ -68,6 +86,10 @@ export function ChatShell() {
               textareaRef={chat.textareaRef}
               handleSubmit={(e) => chat.handleSubmit(e, getAuthToken)}
               handleKeyDown={chat.handleKeyDown}
+              voiceState={voice.state}
+              voiceError={voice.error}
+              onToggleVoice={voice.toggle}
+              voiceActive={voice.isConnected}
             />
 
             <RightPanel

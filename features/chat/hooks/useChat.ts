@@ -23,6 +23,7 @@ export function useChat(addXenaAction: (event: import('@/lib/types').XenaActionE
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const assistantBufferRef = useRef('');
+  const voiceAssistantMsgIdRef = useRef<string | null>(null);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -53,6 +54,52 @@ export function useChat(addXenaAction: (event: import('@/lib/types').XenaActionE
       default: return 'Online';
     }
   }, [avatarState]);
+
+  // ─── Voice message helpers ───
+
+  // Called when voice STT produces a final user transcript
+  const addVoiceUserMessage = useCallback((transcript: string) => {
+    const msg: ChatMessage = {
+      id: makeId(),
+      role: 'user',
+      content: transcript,
+      createdAt: nowIso(),
+      source: 'voice',
+    };
+    setMessages((current) => [...current, msg]);
+  }, []);
+
+  // Called when voice assistant text starts (first delta) — creates empty assistant message
+  const ensureVoiceAssistantMessage = useCallback(() => {
+    if (voiceAssistantMsgIdRef.current) return;
+    const id = makeId();
+    voiceAssistantMsgIdRef.current = id;
+    assistantBufferRef.current = '';
+    setMessages((current) => [
+      ...current,
+      { id, role: 'assistant', content: '', createdAt: nowIso(), source: 'voice' },
+    ]);
+  }, []);
+
+  // Called on each text delta from voice assistant
+  const appendVoiceAssistantDelta = useCallback((delta: string) => {
+    ensureVoiceAssistantMessage();
+    assistantBufferRef.current += delta;
+    const text = assistantBufferRef.current;
+    const msgId = voiceAssistantMsgIdRef.current;
+    if (!msgId) return;
+    setMessages((current) =>
+      current.map((m) => (m.id === msgId ? { ...m, content: text } : m))
+    );
+  }, [ensureVoiceAssistantMessage]);
+
+  // Reset voice assistant buffer (called when voice response completes or disconnects)
+  const resetVoiceAssistant = useCallback(() => {
+    voiceAssistantMsgIdRef.current = null;
+    assistantBufferRef.current = '';
+  }, []);
+
+  // ─── Text chat submit ───
 
   const handleSubmit = useCallback(async (
     event: FormEvent<HTMLFormElement>,
@@ -177,5 +224,8 @@ export function useChat(addXenaAction: (event: import('@/lib/types').XenaActionE
     textareaRef,
     handleSubmit,
     handleKeyDown,
+    addVoiceUserMessage,
+    appendVoiceAssistantDelta,
+    resetVoiceAssistant,
   };
 }

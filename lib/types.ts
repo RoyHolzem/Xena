@@ -7,6 +7,7 @@ export type ChatMessage = {
   role: Role;
   content: string;
   createdAt: string;
+  source?: 'text' | 'voice';  // how this message was created
 };
 
 export type PresenceState = 'idle' | 'processing' | 'typing' | 'error';

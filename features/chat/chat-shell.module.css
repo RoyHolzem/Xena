@@ -551,6 +551,76 @@
   color: var(--text-tertiary);
 }
 
+/* Voice button */
+.chatVoiceBtn {
+  width: 44px;
+  height: 44px;
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  background: rgba(56, 97, 251, 0.06);
+  color: var(--text-tertiary);
+  cursor: pointer;
+  display: grid;
+  place-items: center;
+  transition: all var(--duration) var(--ease-out);
+  flex-shrink: 0;
+}
+
+.chatVoiceBtn:hover {
+  background: rgba(56, 97, 251, 0.12);
+  border-color: var(--border-focus);
+  color: var(--accent-bright);
+}
+
+.chatVoiceBtnActive {
+  background: rgba(56, 97, 251, 0.15);
+  border-color: rgba(56, 97, 251, 0.3);
+  color: var(--accent-bright);
+  box-shadow: 0 0 20px rgba(56, 97, 251, 0.1);
+}
+
+.chatVoiceBtnListening {
+  background: rgba(0, 230, 138, 0.15);
+  border-color: rgba(0, 230, 138, 0.3);
+  color: var(--green);
+  box-shadow: 0 0 24px rgba(0, 230, 138, 0.15);
+  animation: voicePulse 1.2s ease-in-out infinite;
+}
+
+.chatVoiceBtnSpeaking {
+  background: rgba(0, 200, 255, 0.15);
+  border-color: rgba(0, 200, 255, 0.3);
+  color: var(--cyan);
+  box-shadow: 0 0 24px rgba(0, 200, 255, 0.15);
+  animation: voicePulse 0.8s ease-in-out infinite;
+}
+
+.chatVoiceBtnConnecting {
+  background: rgba(255, 176, 32, 0.12);
+  border-color: rgba(255, 176, 32, 0.25);
+  color: var(--amber);
+}
+
+.voiceTag {
+  margin-left: 6px;
+  font-size: 10px;
+  opacity: 0.7;
+}
+
+@keyframes voicePulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.06); }
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.spin {
+  animation: spin 1s linear infinite;
+}
+
 .chatSendBtn {
   width: 44px;
   height: 44px;
