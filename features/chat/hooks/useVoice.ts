@@ -22,6 +22,9 @@ export function useVoice(opts: UseVoiceOptions = {}) {
   const micSourceRef = useRef<MediaStreamAudioSourceNode | null>(null);
   const micProcessorRef = useRef<ScriptProcessorNode | null>(null);
   const speakerQueueRef = useRef<Int16Array[]>([]);
+  const audioBufferRef = useRef<Int16Array[]>([]);
+  const AUDIO_BUFFER_MS = 100;
+  const SAMPLES_PER_BUFFER = 24000 * (AUDIO_BUFFER_MS / 1000); // 2400 samples = 100ms
   const isPlayingRef = useRef(false);
   const playStartTimeRef = useRef(0);
   const nextPlayTimeRef = useRef(0);
@@ -101,7 +104,7 @@ export function useVoice(opts: UseVoiceOptions = {}) {
 
       // Open WebSocket to OpenAI Realtime API
       const ws = new WebSocket(
-        'wss://api.openai.com/v1/realtime?model=gpt-realtime',
+        'wss://api.openai.com/v1/realtime?session.type=realtime',
         [
           'realtime',
           `openai-insecure-api-key.${ephemeralToken}`,
@@ -130,6 +133,7 @@ export function useVoice(opts: UseVoiceOptions = {}) {
           micSourceRef.current = source;
 
           // Use ScriptProcessor to capture raw PCM (24kHz, mono, 16-bit)
+          // Buffer for at least 100ms before sending to avoid "buffer too small" errors
           const processor = ctx.createScriptProcessor(4096, 1, 1);
           micProcessorRef.current = processor;
 
@@ -144,15 +148,29 @@ export function useVoice(opts: UseVoiceOptions = {}) {
               const s = Math.max(-1, Math.min(1, float32[i]));
               int16[i] = s < 0 ? s * 0x8000 : s * 0x7FFF;
             }
-            const base64 = btoa(
-              String.fromCharCode(...new Uint8Array(int16.buffer))
-            );
-            ws.send(
-              JSON.stringify({
-                type: 'input_audio_buffer.append',
-                audio: base64,
-              })
-            );
+            audioBufferRef.current.push(int16);
+
+            // Check if we have enough buffered audio (>= 100ms)
+            const totalSamples = audioBufferRef.current.reduce((sum, buf) => sum + buf.length, 0);
+            if (totalSamples >= SAMPLES_PER_BUFFER) {
+              const merged = new Int16Array(totalSamples);
+              let offset = 0;
+              for (const buf of audioBufferRef.current) {
+                merged.set(buf, offset);
+                offset += buf.length;
+              }
+              audioBufferRef.current = [];
+
+              const base64 = btoa(
+                String.fromCharCode(...new Uint8Array(merged.buffer))
+              );
+              ws.send(
+                JSON.stringify({
+                  type: 'input_audio_buffer.append',
+                  audio: base64,
+                })
+              );
+            }
           };
 
           setState('connected');
@@ -255,6 +273,8 @@ export function useVoice(opts: UseVoiceOptions = {}) {
   }, [getAuthToken, opts, playQueuedAudio]);
 
   const disconnect = useCallback(() => {
+    // Flush any remaining audio buffer
+    audioBufferRef.current = [];
     micProcessorRef.current?.disconnect();
     micSourceRef.current?.disconnect();
     micStreamRef.current?.getTracks().forEach((t) => t.stop());
