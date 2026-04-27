@@ -7,7 +7,7 @@ import type { LabeledValue, TelecomApiResponse, TelecomRecord, TelecomView } fro
 const region =
   process.env.TELECOM_AWS_REGION ||
   process.env.AWS_REGION ||
-  process.env.NEXT_PUBLIC_CT_AWS_REGION ||
+  process.env.CT_AWS_REGION ||
   'eu-central-1';
 
 const tableNames: Record<TelecomView, string> = {

@@ -1,0 +1,64 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: Xena Operations API — Lambda + HTTP API Gateway + least-privilege IAM
+Globals:
+  Function:
+    Runtime: nodejs20.x
+    Timeout: 15
+    MemorySize: 256
+    Environment:
+      Variables:
+        INCIDENTS_TABLE: roy-telecom-incidents-lux
+        EVENTS_TABLE: roy-telecom-events-lux
+        PLANNED_WORKS_TABLE: roy-telecom-planned-works-lux
+Resources:
+  XenaOpsFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: xena-ops-api
+      Handler: index.handler
+      CodeUri: s3://aws-sam-cli-managed-default-samclisourcebucket-us9iunacpbqr/xena-ops-api/b10117bbb9081b96f1e240c09b8528e6
+      Description: Xena Operations API — reads telecom DynamoDB tables
+      Policies:
+      - Statement:
+          Sid: XenaOpsDynamoDBRead
+          Effect: Allow
+          Action:
+          - dynamodb:GetItem
+          - dynamodb:Query
+          - dynamodb:Scan
+          Resource:
+          - Fn::Sub: arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/roy-telecom-events-lux
+          - Fn::Sub: arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/roy-telecom-incidents-lux
+          - Fn::Sub: arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/roy-telecom-planned-works-lux
+      Events:
+        IncidentsLatest:
+          Type: HttpApi
+          Properties:
+            Path: /incidents/latest
+            Method: GET
+        IncidentsOpen:
+          Type: HttpApi
+          Properties:
+            Path: /incidents/open
+            Method: GET
+        EventsLatest:
+          Type: HttpApi
+          Properties:
+            Path: /events/latest
+            Method: GET
+        EventsOpen:
+          Type: HttpApi
+          Properties:
+            Path: /events/open
+            Method: GET
+        PlannedWorksToday:
+          Type: HttpApi
+          Properties:
+            Path: /planned-works/today
+            Method: GET
+        PlannedWorksOpen:
+          Type: HttpApi
+          Properties:
+            Path: /planned-works/open
+            Method: GET

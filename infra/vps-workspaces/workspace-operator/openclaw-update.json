@@ -1,0 +1,187 @@
+{
+  "meta": {
+    "lastTouchedVersion": "2026.4.15",
+    "lastTouchedAt": "2026-04-25T22:20:00.000Z"
+  },
+  "wizard": {
+    "lastRunAt": "2026-04-20T22:43:04.133Z",
+    "lastRunVersion": "2026.4.15",
+    "lastRunCommand": "configure",
+    "lastRunMode": "local"
+  },
+  "browser": {
+    "enabled": false
+  },
+  "auth": {
+    "profiles": {
+      "zai:default": {
+        "provider": "zai",
+        "mode": "api_key"
+      }
+    }
+  },
+  "models": {
+    "mode": "merge",
+    "providers": {
+      "zai": {
+        "baseUrl": "https://api.z.ai/api/coding/paas/v4",
+        "api": "openai-completions",
+        "models": [
+          { "id": "glm-5", "name": "GLM-5", "reasoning": true, "input": ["text"], "cost": { "input": 1, "output": 3.2, "cacheRead": 0.2, "cacheWrite": 0 }, "contextWindow": 202800, "maxTokens": 131100 },
+          { "id": "glm-5-turbo", "name": "GLM-5 Turbo", "reasoning": true, "input": ["text"], "cost": { "input": 1.2, "output": 4, "cacheRead": 0.24, "cacheWrite": 0 }, "contextWindow": 202800, "maxTokens": 131100 },
+          { "id": "glm-5.1", "name": "GLM-5.1", "reasoning": true, "input": ["text"], "cost": { "input": 1, "output": 3.2, "cacheRead": 0.2, "cacheWrite": 0 }, "contextWindow": 202800, "maxTokens": 131100 },
+          { "id": "glm-4.7", "name": "GLM-4.7", "reasoning": true, "input": ["text"], "cost": { "input": 0.6, "output": 2.2, "cacheRead": 0.11, "cacheWrite": 0 }, "contextWindow": 204800, "maxTokens": 131072 },
+          { "id": "glm-4.7-flash", "name": "GLM-4.7 Flash", "reasoning": true, "input": ["text"], "cost": { "input": 0.07, "output": 0.4, "cacheRead": 0, "cacheWrite": 0 }, "contextWindow": 200000, "maxTokens": 131072 },
+          { "id": "glm-4.7-flashx", "name": "GLM-4.7 FlashX", "reasoning": true, "input": ["text"], "cost": { "input": 0.06, "output": 0.4, "cacheRead": 0.01, "cacheWrite": 0 }, "contextWindow": 200000, "maxTokens": 128000 },
+          { "id": "glm-4.6", "name": "GLM-4.6", "reasoning": true, "input": ["text"], "cost": { "input": 0.6, "output": 2.2, "cacheRead": 0.11, "cacheWrite": 0 }, "contextWindow": 204800, "maxTokens": 131072 },
+          { "id": "glm-4.6v", "name": "GLM-4.6V", "reasoning": true, "input": ["text", "image"], "cost": { "input": 0.3, "output": 0.9, "cacheRead": 0, "cacheWrite": 0 }, "contextWindow": 128000, "maxTokens": 32768 },
+          { "id": "glm-4.5", "name": "GLM-4.5", "reasoning": true, "input": ["text"], "cost": { "input": 0.6, "output": 2.2, "cacheRead": 0.11, "cacheWrite": 0 }, "contextWindow": 131072, "maxTokens": 98304 },
+          { "id": "glm-4.5-air", "name": "GLM-4.5 Air", "reasoning": true, "input": ["text"], "cost": { "input": 0.2, "output": 1.1, "cacheRead": 0.03, "cacheWrite": 0 }, "contextWindow": 131072, "maxTokens": 98304 },
+          { "id": "glm-4.5-flash", "name": "GLM-4.5 Flash", "reasoning": true, "input": ["text"], "cost": { "input": 0, "output": 0, "cacheRead": 0, "cacheWrite": 0 }, "contextWindow": 131072, "maxTokens": 98304 },
+          { "id": "glm-4.5v", "name": "GLM-4.5V", "reasoning": true, "input": ["text", "image"], "cost": { "input": 0.6, "output": 1.8, "cacheRead": 0, "cacheWrite": 0 }, "contextWindow": 64000, "maxTokens": 16384 }
+        ]
+      }
+    }
+  },
+  "agents": {
+    "defaults": {
+      "model": {
+        "primary": "zai/glm-5.1",
+        "fallbacks": ["zai/glm-5.1"]
+      },
+      "models": {
+        "zai/glm-5-turbo": {}
+      },
+      "sandbox": {
+        "mode": "all",
+        "workspaceAccess": "rw",
+        "scope": "session",
+        "docker": {
+          "network": "bridge",
+          "user": "1000:1000",
+          "env": {
+            "AWS_CA_BUNDLE": "/workspace/cacert.pem",
+            "CURL_CA_BUNDLE": "/workspace/cacert.pem",
+            "SSL_CERT_FILE": "/workspace/cacert.pem"
+          },
+          "binds": []
+        }
+      }
+    },
+    "list": [
+      {
+        "id": "main",
+        "model": "zai/glm-5.1"
+      },
+      {
+        "id": "operator",
+        "model": "zai/glm-4.7-flash",
+        "workspace": "/home/ubuntu/.openclaw/workspace-operator"
+      }
+    ]
+  },
+  "tools": {
+    "elevated": {
+      "enabled": true,
+      "allowFrom": {
+        "telegram": [7870330185],
+        "webchat": ["openclaw-control-ui"]
+      }
+    }
+  },
+  "bindings": [
+    {
+      "agentId": "main",
+      "match": {
+        "channel": "telegram",
+        "accountId": "default"
+      }
+    },
+    {
+      "agentId": "operator",
+      "match": {
+        "channel": "telegram",
+        "accountId": "operator"
+      }
+    }
+  ],
+  "commands": {
+    "native": "auto",
+    "nativeSkills": "auto",
+    "restart": true,
+    "ownerDisplay": "raw"
+  },
+  "channels": {
+    "telegram": {
+      "enabled": true,
+      "dmPolicy": "allowlist",
+      "botToken": "8752158490:AAHgql0z7L7qAOKEcgxWB4hCpXg4XIzmoig",
+      "groups": {
+        "*": {
+          "requireMention": true
+        }
+      },
+      "allowFrom": ["@Rizz87LU", "7870330185"],
+      "groupPolicy": "allowlist",
+      "streaming": {
+        "mode": "partial"
+      },
+      "accounts": {
+        "operator": {
+          "botToken": "8769183166:AAH6-a5QAX-sLe7XTnoMMgkhZgIUzJT1JCg",
+          "dmPolicy": "allowlist",
+          "allowFrom": ["7870330185"],
+          "groupPolicy": "allowlist",
+          "streaming": {
+            "mode": "partial"
+          }
+        }
+      }
+    }
+  },
+  "gateway": {
+    "port": 18789,
+    "mode": "local",
+    "bind": "loopback",
+    "controlUi": {
+      "allowedOrigins": [
+        "http://localhost:18789",
+        "http://127.0.0.1:18789",
+        "https://18.153.145.14",
+        "https://18.153.145.14:3000",
+        "http://18.153.145.14:3000",
+        "https://18.153.145.14:18789",
+        "http://18.153.145.14:18789"
+      ]
+    },
+    "auth": {
+      "token": "RwogUWOUWN13VXbnpOOuH18IGfPt52cg"
+    },
+    "trustedProxies": ["127.0.0.1"],
+    "http": {
+      "endpoints": {
+        "chatCompletions": {
+          "enabled": true
+        }
+      }
+    }
+  },
+  "plugins": {
+    "entries": {
+      "amazon-bedrock": {
+        "config": {
+          "discovery": {
+            "enabled": false,
+            "region": "eu-central-1"
+          }
+        }
+      },
+      "openai": {
+        "enabled": true
+      },
+      "zai": {
+        "enabled": true
+      }
+    }
+  }
+}

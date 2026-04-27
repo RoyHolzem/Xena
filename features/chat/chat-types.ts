@@ -10,6 +10,4 @@ export type {
   XenaActionCategory,
   XenaActionVerb,
   XenaActionEvent,
-  ActionSource,
-  ActionLogEntry,
 } from '@/lib/types';
