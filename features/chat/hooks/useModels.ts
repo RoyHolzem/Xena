@@ -3,9 +3,9 @@
 import { useEffect, useState } from 'react';
 
 export type ModelInfo = {
-  id: string;
-  name?: string;
-  owned_by?: string;
+  id: string;       // e.g. "zai/glm-4.7-flash"
+  name: string;     // e.g. "GLM-4.7 Flash"
+  provider: string; // e.g. "zai"
 };
 
 export function useModels() {
@@ -21,7 +21,7 @@ export function useModels() {
       .then((r) => r.json())
       .then((data) => {
         if (cancelled) return;
-        const list: ModelInfo[] = data.data || data.models || [];
+        const list: ModelInfo[] = data.models || [];
         setModels(list);
         setError(null);
       })
