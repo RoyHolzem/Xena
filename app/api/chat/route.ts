@@ -4,7 +4,7 @@ import {
   GetSecretValueCommand,
 } from '@aws-sdk/client-secrets-manager';
 
-// Amplify SSR (Lambda) max execution — 60s for streaming LLM responses
+// Amplify SSR (Lambda) max execution - 60s for streaming LLM responses
 export const maxDuration = 60;
 
 const GATEWAY_URL = process.env.NEXT_PUBLIC_GATEWAY_URL || '';
@@ -48,7 +48,12 @@ export async function POST(request: Request) {
     return Response.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
-  let body: { messages?: Array<{ role: string; content: string }>; model?: string; stream?: boolean };
+  let body: {
+    messages?: Array<{ role: string; content: string }>;
+    model?: string;
+    model_override?: string;
+    stream?: boolean;
+  };
   try {
     body = await request.json();
   } catch {
@@ -67,6 +72,17 @@ export async function POST(request: Request) {
   }
 
   const gatewayUrl = GATEWAY_URL + CHAT_PATH;
+
+  // Build the request payload with model_override support
+  const gatewayPayload: Record<string, unknown> = {
+    model: body.model || 'openclaw/operator',
+    stream: true,
+    messages: body.messages,
+  };
+  if (body.model_override) {
+    gatewayPayload.model_override = body.model_override;
+  }
+
   const maxRetries = 3;
   let lastError: string = '';
 
@@ -81,11 +97,7 @@ export async function POST(request: Request) {
           'Content-Type': 'application/json',
           Authorization: 'Bearer ' + gatewayToken,
         },
-        body: JSON.stringify({
-          model: body.model || 'openclaw/operator',
-          stream: true,
-          messages: body.messages,
-        }),
+        body: JSON.stringify(gatewayPayload),
         signal: controller.signal,
       });
 

@@ -1521,3 +1521,30 @@
   letter-spacing: 0.05em;
   white-space: nowrap;
 }
+
+/* Model group header (provider name) */
+.modelGroupLabel {
+  padding: 8px 12px 4px;
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-tertiary, #888);
+  pointer-events: none;
+}
+
+/* Model option badge (tier emoji) */
+.modelOptionBadge {
+  font-size: 12px;
+  flex-shrink: 0;
+  width: 16px;
+  text-align: center;
+}
+
+/* Model tier label */
+.modelOptionTier {
+  font-size: 10px;
+  color: var(--text-tertiary, #666);
+  white-space: nowrap;
+  flex-shrink: 0;
+}

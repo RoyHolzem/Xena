@@ -15,6 +15,12 @@ const NAV_ITEMS: Array<{ key: AppMode; label: string; icon: string }> = [
   { key: 'planned-works', label: 'Maintenance', icon: '\u2699' },
 ];
 
+const TIER_BADGE: Record<string, { label: string; emoji: string }> = {
+  fast: { label: 'Fast', emoji: '⚡' },
+  balanced: { label: 'Balanced', emoji: '⚖️' },
+  powerful: { label: 'Powerful', emoji: '🧠' },
+};
+
 interface TopNavProps {
   mode: AppMode;
   setMode: (mode: AppMode) => void;
@@ -39,10 +45,16 @@ export function TopNav({ mode, setMode, ghStatus, ghCommit, models, selectedMode
     return () => document.removeEventListener('mousedown', handleClick);
   }, []);
 
-  const displayName = (id: string) => {
-    const m = models.find((m) => m.id === id);
-    return m?.name || m?.id || id;
-  };
+  const currentModel = models.find((m) => m.id === selectedModel);
+  const displayName = currentModel?.name || selectedModel.split('/').pop() || selectedModel;
+
+  // Group models by provider
+  const grouped = models.reduce<Record<string, ModelInfo[]>>((acc, m) => {
+    const key = m.provider || 'Other';
+    if (!acc[key]) acc[key] = [];
+    acc[key].push(m);
+    return acc;
+  }, {});
 
   return (
     <nav className={styles.topNav}>
@@ -79,21 +91,30 @@ export function TopNav({ mode, setMode, ghStatus, ghCommit, models, selectedMode
             type="button"
           >
             <span className={styles.modelSelectorIcon}>⬡</span>
-            <span className={styles.modelSelectorLabel}>{displayName(selectedModel)}</span>
+            <span className={styles.modelSelectorLabel}>{displayName}</span>
             <span className={cn(styles.modelSelectorChevron, dropdownOpen && styles.modelSelectorChevronOpen)}>▾</span>
           </button>
           {dropdownOpen && models.length > 0 && (
             <div className={styles.modelDropdown}>
-              {models.map((m) => (
-                <button
-                  key={m.id}
-                  className={cn(styles.modelOption, selectedModel === m.id && styles.modelOptionActive)}
-                  onClick={() => { setSelectedModel(m.id); setDropdownOpen(false); }}
-                  type="button"
-                >
-                  <span className={styles.modelOptionName}>{m.name || m.id}</span>
-                  {m.owned_by && <span className={styles.modelOptionProvider}>{m.owned_by}</span>}
-                </button>
+              {Object.entries(grouped).map(([provider, providerModels]) => (
+                <div key={provider}>
+                  <div className={styles.modelGroupLabel}>{provider}</div>
+                  {providerModels.map((m) => {
+                    const badge = TIER_BADGE[m.tier] || { label: '', emoji: '' };
+                    return (
+                      <button
+                        key={m.id}
+                        className={cn(styles.modelOption, selectedModel === m.id && styles.modelOptionActive)}
+                        onClick={() => { setSelectedModel(m.id); setDropdownOpen(false); }}
+                        type="button"
+                      >
+                        <span className={styles.modelOptionBadge}>{badge.emoji}</span>
+                        <span className={styles.modelOptionName}>{m.name}</span>
+                        <span className={styles.modelOptionTier}>{badge.label}</span>
+                      </button>
+                    );
+                  })}
+                </div>
               ))}
             </div>
           )}

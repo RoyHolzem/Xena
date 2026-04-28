@@ -21,7 +21,8 @@ import styles from './chat-shell.module.css';
 
 const nowIso = () => new Date().toISOString();
 
-const DEFAULT_MODEL = 'openclaw/operator';
+// Default to Mercury 2 (fast, diffusion-based). User can switch in the top nav dropdown.
+const DEFAULT_MODEL_OVERRIDE = 'inceptionlabs/mercury-2';
 
 export function ChatShell() {
   const { assistantName } = publicConfig;
@@ -31,7 +32,7 @@ export function ChatShell() {
   const [mode, setMode] = useState<AppMode>('xena');
   const [activeView] = useState<TelecomView>('incidents');
   const [search] = useState('');
-  const [selectedModel, setSelectedModel] = useState(DEFAULT_MODEL);
+  const [selectedModel, setSelectedModel] = useState(DEFAULT_MODEL_OVERRIDE);
 
   const { ghStatus, ghCommit } = useGitHub();
   const { models } = useModels();

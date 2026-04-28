@@ -6,7 +6,9 @@ import { makeId } from '../chat-utils';
 
 const nowIso = () => new Date().toISOString();
 
-export function useChat(selectedModel: string = 'openclaw/operator', addXenaAction?: (event: import('@/lib/types').XenaActionEvent) => void) {
+const DEFAULT_MODEL_OVERRIDE = 'inceptionlabs/mercury-2';
+
+export function useChat(selectedModel: string = DEFAULT_MODEL_OVERRIDE, addXenaAction?: (event: import('@/lib/types').XenaActionEvent) => void) {
   const [messages, setMessages] = useState<ChatMessage[]>([
     {
       id: makeId(),
@@ -55,7 +57,7 @@ export function useChat(selectedModel: string = 'openclaw/operator', addXenaActi
     }
   }, [avatarState]);
 
-  // ─── Voice message helpers ───
+  // 🎤 Voice message helpers 🎤
 
   const addVoiceUserMessage = useCallback((transcript: string) => {
     const msg: ChatMessage = {
@@ -95,7 +97,7 @@ export function useChat(selectedModel: string = 'openclaw/operator', addXenaActi
     assistantBufferRef.current = '';
   }, []);
 
-  // ─── Text chat submit ───
+  // 💬 Text chat submit 💬
 
   const handleSubmit = useCallback(async (
     event: FormEvent<HTMLFormElement>,
@@ -127,7 +129,8 @@ export function useChat(selectedModel: string = 'openclaw/operator', addXenaActi
           Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({
-          model: selectedModel,
+          model: 'openclaw/operator',
+          model_override: selectedModel,
           stream: true,
           messages: [
             ...messages
