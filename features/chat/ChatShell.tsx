@@ -8,6 +8,7 @@ import { useVoice } from './hooks/useVoice';
 import { useBootSequence } from './hooks/useBootSequence';
 import { useTelecom } from './hooks/useTelecom';
 import { useGitHub } from './hooks/useGitHub';
+import { useModels } from './hooks/useModels';
 import { TopNav, type AppMode } from './components/TopNav';
 import { ChatCenter } from './components/ChatCenter';
 import { LeftPanel } from './components/LeftPanel';
@@ -20,6 +21,8 @@ import styles from './chat-shell.module.css';
 
 const nowIso = () => new Date().toISOString();
 
+const DEFAULT_MODEL = 'openclaw/operator';
+
 export function ChatShell() {
   const { assistantName } = publicConfig;
   const assistantInitial = assistantName.charAt(0).toUpperCase();
@@ -28,10 +31,12 @@ export function ChatShell() {
   const [mode, setMode] = useState<AppMode>('xena');
   const [activeView] = useState<TelecomView>('incidents');
   const [search] = useState('');
+  const [selectedModel, setSelectedModel] = useState(DEFAULT_MODEL);
 
   const { ghStatus, ghCommit } = useGitHub();
+  const { models } = useModels();
 
-  const chat = useChat();
+  const chat = useChat(selectedModel);
   const boot = useBootSequence();
 
   // Voice hook with callbacks that inject into the chat message stream
@@ -81,6 +86,9 @@ export function ChatShell() {
         setMode={setMode}
         ghStatus={ghStatus}
         ghCommit={ghCommit}
+        models={models}
+        selectedModel={selectedModel}
+        setSelectedModel={setSelectedModel}
       />
 
       <div className={styles.body}>
