@@ -1521,3 +1521,13 @@
   letter-spacing: 0.05em;
   white-space: nowrap;
 }
+
+.modelGroupLabel {
+  padding: 6px 12px 4px;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  color: var(--text-tertiary);
+  text-transform: uppercase;
+  user-select: none;
+}
