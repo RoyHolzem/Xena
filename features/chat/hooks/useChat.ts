@@ -6,7 +6,7 @@ import { makeId } from '../chat-utils';
 
 const nowIso = () => new Date().toISOString();
 
-export function useChat(addXenaAction?: (event: import('@/lib/types').XenaActionEvent) => void) {
+export function useChat(selectedModel: string = 'openclaw/operator', addXenaAction?: (event: import('@/lib/types').XenaActionEvent) => void) {
   const [messages, setMessages] = useState<ChatMessage[]>([
     {
       id: makeId(),
@@ -57,7 +57,6 @@ export function useChat(addXenaAction?: (event: import('@/lib/types').XenaAction
 
   // ─── Voice message helpers ───
 
-  // Called when voice STT produces a final user transcript
   const addVoiceUserMessage = useCallback((transcript: string) => {
     const msg: ChatMessage = {
       id: makeId(),
@@ -69,7 +68,6 @@ export function useChat(addXenaAction?: (event: import('@/lib/types').XenaAction
     setMessages((current) => [...current, msg]);
   }, []);
 
-  // Called when voice assistant text starts (first delta) — creates empty assistant message
   const ensureVoiceAssistantMessage = useCallback(() => {
     if (voiceAssistantMsgIdRef.current) return;
     const id = makeId();
@@ -81,7 +79,6 @@ export function useChat(addXenaAction?: (event: import('@/lib/types').XenaAction
     ]);
   }, []);
 
-  // Called on each text delta from voice assistant
   const appendVoiceAssistantDelta = useCallback((delta: string) => {
     ensureVoiceAssistantMessage();
     assistantBufferRef.current += delta;
@@ -93,7 +90,6 @@ export function useChat(addXenaAction?: (event: import('@/lib/types').XenaAction
     );
   }, [ensureVoiceAssistantMessage]);
 
-  // Reset voice assistant buffer (called when voice response completes or disconnects)
   const resetVoiceAssistant = useCallback(() => {
     voiceAssistantMsgIdRef.current = null;
     assistantBufferRef.current = '';
@@ -131,7 +127,7 @@ export function useChat(addXenaAction?: (event: import('@/lib/types').XenaAction
           Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({
-          model: 'openclaw/operator',
+          model: selectedModel,
           stream: true,
           messages: [
             ...messages
@@ -201,7 +197,7 @@ export function useChat(addXenaAction?: (event: import('@/lib/types').XenaAction
         )
       );
     }
-  }, [draft, messages, presence, addXenaAction]);
+  }, [draft, messages, presence, selectedModel, addXenaAction]);
 
   const handleKeyDown = useCallback((event: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (event.key === 'Enter' && !event.shiftKey) {
