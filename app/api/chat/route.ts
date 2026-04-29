@@ -83,6 +83,7 @@ export async function POST(request: Request) {
         },
         body: JSON.stringify({
           model: body.model || 'openclaw/operator',
+          model_override: body.model_override || undefined,
           stream: true,
           messages: body.messages,
         }),
@@ -126,3 +127,4 @@ export async function POST(request: Request) {
 
   return Response.json({ error: `Gateway unavailable after ${maxRetries} attempts: ${lastError}` }, { status: 504 });
 }
+
