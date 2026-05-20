@@ -135,7 +135,7 @@ export function ModuleDashboard({ view, onBackToXena }: ModuleDashboardProps) {
     async (recordId: string, newStatus: string) => {
       const result = await updateRecord(view, recordId, { status: newStatus });
       if (result.ok) {
-        void loadTelecomView(view, true);
+        void loadTelecomView(view, true, result.recordId ?? recordId);
       } else {
         console.error('Status update failed:', result.error);
       }
@@ -147,7 +147,7 @@ export function ModuleDashboard({ view, onBackToXena }: ModuleDashboardProps) {
     async (recordId: string, field: string, value: string) => {
       const result = await updateRecord(view, recordId, { [field]: value });
       if (result.ok) {
-        void loadTelecomView(view, true);
+        void loadTelecomView(view, true, result.recordId ?? recordId);
       } else {
         console.error('Update failed:', result.error);
       }
@@ -160,7 +160,7 @@ export function ModuleDashboard({ view, onBackToXena }: ModuleDashboardProps) {
       const result = await createRecord(view, fields);
       if (result.ok) {
         setShowCreateModal(false);
-        void loadTelecomView(view, true);
+        void loadTelecomView(view, true, result.recordId);
       } else {
         console.error('Create failed:', result.error);
       }
