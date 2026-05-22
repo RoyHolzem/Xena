@@ -354,6 +354,28 @@ function sortRecords(view: TelecomView, items: TelecomRecord[]) {
   });
 }
 
+async function scanAllItems(tableName: string): Promise<RawItem[]> {
+  const items: RawItem[] = [];
+  let exclusiveStartKey: Record<string, unknown> | undefined;
+
+  do {
+    const response = await client.send(
+      new ScanCommand({
+        TableName: tableName,
+        ExclusiveStartKey: exclusiveStartKey,
+      })
+    );
+    items.push(...((response.Items || []) as RawItem[]));
+    exclusiveStartKey = response.LastEvaluatedKey as Record<string, unknown> | undefined;
+  } while (exclusiveStartKey);
+
+  return items;
+}
+
+function isConditionalCheckFailure(error: unknown) {
+  return error instanceof Error && error.name === 'ConditionalCheckFailedException';
+}
+
 export async function GET(request: NextRequest) {
   const authHeader = request.headers.get('Authorization');
   const user = await verifyToken(authHeader);
@@ -369,14 +391,7 @@ export async function GET(request: NextRequest) {
   const recordIdParam = request.nextUrl.searchParams.get('recordId')?.trim() || '';
 
   try {
-    const response = await client.send(
-      new ScanCommand({
-        TableName: tableNames[view],
-        Limit: 200,
-      })
-    );
-
-    let items = sortRecords(view, (response.Items || []).map((item) => normalize(view, item as RawItem)));
+    let items = sortRecords(view, (await scanAllItems(tableNames[view])).map((item) => normalize(view, item)));
 
     if (recordIdParam) {
       try {
@@ -512,9 +527,16 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    await client.send(new PutCommand({ TableName: tableNames[view], Item: item }));
+    await client.send(new PutCommand({
+      TableName: tableNames[view],
+      Item: item,
+      ConditionExpression: 'attribute_not_exists(recordId)',
+    }));
     return NextResponse.json({ ok: true, recordId, item: normalize(view, item as RawItem) }, { status: 201 });
   } catch (error) {
+    if (isConditionalCheckFailure(error)) {
+      return NextResponse.json({ ok: false, error: `Record ${recordId} already exists` }, { status: 409 });
+    }
     const message = error instanceof Error ? error.message : 'Failed to create record';
     return NextResponse.json({ ok: false, error: message }, { status: 500 });
   }
