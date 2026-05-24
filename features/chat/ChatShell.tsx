@@ -27,6 +27,11 @@ import styles from './styles/shell.module.css';
 
 const DEFAULT_MODEL = 'inceptionlabs/mercury-2';
 
+type ModuleFocus = {
+  view: TelecomView;
+  recordId: string;
+} | null;
+
 export function ChatShell() {
   const { assistantName } = publicConfig;
   const assistantInitial = assistantName.charAt(0).toUpperCase();
@@ -37,6 +42,7 @@ export function ChatShell() {
   const [search] = useState('');
   const [selectedModel, setSelectedModel] = useState(DEFAULT_MODEL);
   const [theme, setTheme] = useState<'dark' | 'light'>('dark');
+  const [moduleFocus, setModuleFocus] = useState<ModuleFocus>(null);
 
   const actionLog = useActionLog();
 
@@ -78,7 +84,7 @@ export function ChatShell() {
     onXenaAction,
     onUiActions,
     onResponseDone: useCallback(() => {
-      void telecom.loadTelecomView(contextView, true);
+      void telecom.loadTelecomView(contextView, true, telecom.selectedRecordIds[contextView] ?? undefined);
     }, [contextView, telecom]),
   });
 
@@ -129,15 +135,22 @@ export function ChatShell() {
 
   // Navigate to a record: switch mode & view, select the record
   const handleNavigateToRecord = useCallback((view: TelecomView, recordId: string) => {
+    setModuleFocus({ view, recordId });
     setMode(view as AppMode);
     setContextView(view);
     telecom.selectRecord(view, recordId);
+    void telecom.loadTelecomView(view, true, recordId);
   }, [telecom]);
 
   const displayRecord = matchedRecord || telecom.selectedRecord;
 
   const isXenaMode = mode === 'xena';
   const isReady = boot.bootState === 'ready';
+  const activeModuleView = isXenaMode ? contextView : (mode as TelecomView);
+  const activeModuleRecordId =
+    moduleFocus?.view === activeModuleView
+      ? moduleFocus.recordId
+      : telecom.selectedRecordIds[activeModuleView];
 
   if (!isReady) {
     return (
@@ -209,7 +222,8 @@ export function ChatShell() {
           </>
         ) : (
           <ModuleDashboard
-            view={mode as TelecomView}
+            view={activeModuleView}
+            initialRecordId={activeModuleRecordId}
             onBackToXena={() => setMode('xena')}
           />
         )}

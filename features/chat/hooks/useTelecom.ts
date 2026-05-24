@@ -117,6 +117,8 @@ export function useTelecom(
     [fetchTelecomPayload, applyPayload, telecomData],
   );
 
+  const selectedRecordIdForActiveView = selectedRecordIds[activeView] ?? undefined;
+
   const focusRecord = useCallback(
     async (view: TelecomView, recordId: string) => {
       onContextViewChange?.(view);
@@ -140,10 +142,10 @@ export function useTelecom(
   useEffect(() => {
     if (!enablePolling) return;
     const interval = setInterval(() => {
-      void loadTelecomView(activeView, true);
+      void loadTelecomView(activeView, true, selectedRecordIdForActiveView);
     }, TELECOM_REFRESH_INTERVAL);
     return () => clearInterval(interval);
-  }, [activeView, loadTelecomView, enablePolling]);
+  }, [activeView, loadTelecomView, enablePolling, selectedRecordIdForActiveView]);
 
   const records = telecomData[activeView];
 

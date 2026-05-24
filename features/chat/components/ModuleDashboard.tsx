@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState, useCallback } from 'react';
+import { useEffect, useMemo, useRef, useState, useCallback } from 'react';
 import type { TelecomRecord, TelecomView } from '@/lib/types';
 import { useTelecom } from '../hooks/useTelecom';
 import { useTelecomMutation } from '../hooks/useTelecomMutation';
@@ -71,14 +71,17 @@ type StatusFilter = 'all' | 'active' | 'closed' | string;
 
 interface ModuleDashboardProps {
   view: TelecomView;
+  initialRecordId?: string | null;
   onBackToXena: () => void;
 }
 
-export function ModuleDashboard({ view, onBackToXena }: ModuleDashboardProps) {
+export function ModuleDashboard({ view, initialRecordId, onBackToXena }: ModuleDashboardProps) {
   const getAuthToken = useAuthToken();
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const focusedInitialRecordRef = useRef<string | null>(null);
+  const trimmedInitialRecordId = initialRecordId?.trim() || '';
 
   const {
     records,
@@ -89,7 +92,7 @@ export function ModuleDashboard({ view, onBackToXena }: ModuleDashboardProps) {
     telecomError,
     loadTelecomView,
   } = useTelecom(view, getAuthToken, search, {
-    autoLoadOnMount: true,
+    autoLoadOnMount: !trimmedInitialRecordId,
     enablePolling: true,
   });
 
@@ -97,6 +100,14 @@ export function ModuleDashboard({ view, onBackToXena }: ModuleDashboardProps) {
 
   const meta = VIEW_META.find((v) => v.key === view);
   const statuses = STATUS_CONFIG[view];
+
+  useEffect(() => {
+    if (!trimmedInitialRecordId) return;
+    const focusKey = `${view}:${trimmedInitialRecordId}`;
+    if (focusedInitialRecordRef.current === focusKey) return;
+    focusedInitialRecordRef.current = focusKey;
+    void loadTelecomView(view, true, trimmedInitialRecordId);
+  }, [view, trimmedInitialRecordId, loadTelecomView]);
 
   // Apply status filter on top of search filter
   const filteredRecords = useMemo(() => {
@@ -135,7 +146,7 @@ export function ModuleDashboard({ view, onBackToXena }: ModuleDashboardProps) {
     async (recordId: string, newStatus: string) => {
       const result = await updateRecord(view, recordId, { status: newStatus });
       if (result.ok) {
-        void loadTelecomView(view, true);
+        void loadTelecomView(view, true, recordId);
       } else {
         console.error('Status update failed:', result.error);
       }
@@ -147,7 +158,7 @@ export function ModuleDashboard({ view, onBackToXena }: ModuleDashboardProps) {
     async (recordId: string, field: string, value: string) => {
       const result = await updateRecord(view, recordId, { [field]: value });
       if (result.ok) {
-        void loadTelecomView(view, true);
+        void loadTelecomView(view, true, recordId);
       } else {
         console.error('Update failed:', result.error);
       }
@@ -160,7 +171,7 @@ export function ModuleDashboard({ view, onBackToXena }: ModuleDashboardProps) {
       const result = await createRecord(view, fields);
       if (result.ok) {
         setShowCreateModal(false);
-        void loadTelecomView(view, true);
+        void loadTelecomView(view, true, result.recordId);
       } else {
         console.error('Create failed:', result.error);
       }
@@ -220,7 +231,7 @@ export function ModuleDashboard({ view, onBackToXena }: ModuleDashboardProps) {
           </button>
           <button
             className={styles.moduleRefresh}
-            onClick={() => void loadTelecomView(view, true)}
+            onClick={() => void loadTelecomView(view, true, selectedRecord?.recordId)}
             type="button"
           >
             Refresh
