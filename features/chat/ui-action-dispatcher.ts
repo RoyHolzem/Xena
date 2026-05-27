@@ -9,9 +9,11 @@ const OPEN_TYPES = new Set<string>([
   'OPEN_INCIDENT',
   'OPEN_EVENT',
   'OPEN_PLANNED_WORK',
+  'OPEN_ORDER',
   'SHOW_INCIDENT',
   'SHOW_EVENT',
   'SHOW_PLANNED_WORK',
+  'SHOW_ORDER',
 ]);
 
 function isRecordId(v: unknown): v is string {
@@ -53,7 +55,7 @@ export function narrowUiAction(raw: unknown): XenaUiAction | null {
 
   if (t === 'SHOW_SEARCH_RESULTS') {
     const entity = o.entity;
-    if (entity !== 'incident' && entity !== 'event' && entity !== 'planned-work') return null;
+    if (entity !== 'incident' && entity !== 'event' && entity !== 'planned-work' && entity !== 'order') return null;
     const results = o.results;
     if (!Array.isArray(results) || results.length === 0) return null;
     const rows: XenaSearchResultRow[] = [];
@@ -85,10 +87,12 @@ export function describeAction(action: XenaUiAction): string {
     case 'OPEN_INCIDENT':
     case 'OPEN_EVENT':
     case 'OPEN_PLANNED_WORK':
+    case 'OPEN_ORDER':
       return `${action.type}(${action.recordId})`;
     case 'SHOW_INCIDENT':
     case 'SHOW_EVENT':
     case 'SHOW_PLANNED_WORK':
+    case 'SHOW_ORDER':
       return `${action.type}(${action.recordId})`;
     case 'SHOW_SEARCH_RESULTS':
       return `SHOW_SEARCH_RESULTS(${action.entity},${action.results.length})`;
@@ -146,9 +150,11 @@ export async function applyUiActions(actions: XenaUiAction[], deps: CockpitDispa
       case 'OPEN_INCIDENT':
       case 'OPEN_EVENT':
       case 'OPEN_PLANNED_WORK':
+      case 'OPEN_ORDER':
       case 'SHOW_INCIDENT':
       case 'SHOW_EVENT':
-      case 'SHOW_PLANNED_WORK': {
+      case 'SHOW_PLANNED_WORK':
+      case 'SHOW_ORDER': {
         const view = openActionToView(action);
         const id = openActionRecordId(action);
         if (view && id) {
