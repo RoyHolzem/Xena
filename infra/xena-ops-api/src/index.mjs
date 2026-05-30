@@ -2,6 +2,7 @@ import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
 import { DynamoDBDocumentClient, ScanCommand, GetCommand, PutCommand, UpdateCommand } from '@aws-sdk/lib-dynamodb';
 
 const ddb = DynamoDBDocumentClient.from(new DynamoDBClient({ region: process.env.AWS_REGION || 'eu-central-1' }));
+const MAX_CREATE_ID_ATTEMPTS = 5;
 
 const TABLES = {
   incidents: process.env.INCIDENTS_TABLE || 'roy-telecom-incidents-lux',
@@ -167,6 +168,10 @@ function generateRecordId(type) {
   return `${prefix}-${year}-${seq}`;
 }
 
+function isConditionalCheckFailed(error) {
+  return error?.name === 'ConditionalCheckFailedException';
+}
+
 function parseBody(event) {
   try {
     let body = event.body;
@@ -192,26 +197,47 @@ async function createRecord(type, body) {
     return { statusCode: 400, body: JSON.stringify({ ok: false, error: `Invalid status '${body.status}'. Valid: ${VALID_STATUSES[type].join(', ')}` }) };
   }
 
-  const now = new Date().toISOString();
-  const recordId = body.recordId || generateRecordId(type);
+  const requestedRecordId = typeof body.recordId === 'string' && body.recordId.trim() ? body.recordId.trim() : null;
+  const maxAttempts = requestedRecordId ? 1 : MAX_CREATE_ID_ATTEMPTS;
 
-  const allowed = EDITABLE_FIELDS[type] || [];
-  const item = { recordId, createdAt: now, updatedAt: now, startTime: now };
-  for (const field of allowed) {
-    if (body[field] !== undefined && body[field] !== null) {
-      item[field] = body[field];
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    const now = new Date().toISOString();
+    const recordId = requestedRecordId || generateRecordId(type);
+
+    const allowed = EDITABLE_FIELDS[type] || [];
+    const item = { recordId, createdAt: now, updatedAt: now, startTime: now };
+    for (const field of allowed) {
+      if (body[field] !== undefined && body[field] !== null) {
+        item[field] = body[field];
+      }
+    }
+    // Ensure startTime is set
+    if (!item.startTime) item.startTime = now;
+
+    try {
+      await ddb.send(new PutCommand({
+        TableName: TABLES[type],
+        Item: item,
+        ConditionExpression: 'attribute_not_exists(recordId)',
+      }));
+
+      return {
+        statusCode: 201,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ok: true, recordId, item: normalize(item) }),
+      };
+    } catch (error) {
+      if (isConditionalCheckFailed(error)) {
+        if (requestedRecordId || attempt === maxAttempts) {
+          return { statusCode: 409, body: JSON.stringify({ ok: false, error: `Record ${recordId} already exists` }) };
+        }
+        continue;
+      }
+      throw error;
     }
   }
-  // Ensure startTime is set
-  if (!item.startTime) item.startTime = now;
 
-  await ddb.send(new PutCommand({ TableName: TABLES[type], Item: item }));
-
-  return {
-    statusCode: 201,
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ ok: true, recordId, item: normalize(item) }),
-  };
+  return { statusCode: 500, body: JSON.stringify({ ok: false, error: 'Failed to generate a unique recordId' }) };
 }
 
 async function updateRecord(type, recordId, body) {
