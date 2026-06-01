@@ -81,6 +81,10 @@ const EDITABLE_FIELDS = {
 // Fields required for creation
 const REQUIRED_CREATE_FIELDS = ['title', 'status', 'severity'];
 
+function isConditionalCheckFailed(err) {
+  return err?.name === 'ConditionalCheckFailedException';
+}
+
 function toIso(v) { return (typeof v === 'string' && v) ? v : new Date(0).toISOString(); }
 
 function normalize(item) {
@@ -205,7 +209,18 @@ async function createRecord(type, body) {
   // Ensure startTime is set
   if (!item.startTime) item.startTime = now;
 
-  await ddb.send(new PutCommand({ TableName: TABLES[type], Item: item }));
+  try {
+    await ddb.send(new PutCommand({
+      TableName: TABLES[type],
+      Item: item,
+      ConditionExpression: 'attribute_not_exists(recordId)',
+    }));
+  } catch (err) {
+    if (isConditionalCheckFailed(err)) {
+      return { statusCode: 409, body: JSON.stringify({ ok: false, error: `Record ${recordId} already exists` }) };
+    }
+    throw err;
+  }
 
   return {
     statusCode: 201,
