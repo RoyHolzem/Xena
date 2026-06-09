@@ -8,6 +8,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
+    "test:telecom-create-guards": "node --test tests/telecom-create-guard.test.mjs",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
