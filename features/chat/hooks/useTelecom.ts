@@ -140,10 +140,10 @@ export function useTelecom(
   useEffect(() => {
     if (!enablePolling) return;
     const interval = setInterval(() => {
-      void loadTelecomView(activeView, true);
+      void loadTelecomView(activeView, true, selectedRecordIds[activeView] ?? undefined);
     }, TELECOM_REFRESH_INTERVAL);
     return () => clearInterval(interval);
-  }, [activeView, loadTelecomView, enablePolling]);
+  }, [activeView, loadTelecomView, enablePolling, selectedRecordIds]);
 
   const records = telecomData[activeView];
 
