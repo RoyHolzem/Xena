@@ -205,7 +205,22 @@ async function createRecord(type, body) {
   // Ensure startTime is set
   if (!item.startTime) item.startTime = now;
 
-  await ddb.send(new PutCommand({ TableName: TABLES[type], Item: item }));
+  try {
+    await ddb.send(new PutCommand({
+      TableName: TABLES[type],
+      Item: item,
+      ConditionExpression: 'attribute_not_exists(recordId)',
+    }));
+  } catch (err) {
+    if (err?.name === 'ConditionalCheckFailedException') {
+      return {
+        statusCode: 409,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ok: false, error: `Record ${recordId} already exists` }),
+      };
+    }
+    throw err;
+  }
 
   return {
     statusCode: 201,
