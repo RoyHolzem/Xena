@@ -127,14 +127,14 @@ export function ChatShell() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [matchedRecord, matchedView]);
 
-  // Navigate to a record: switch mode & view, select the record
+  // Navigate to a record from a chat context card while staying in the cockpit.
   const handleNavigateToRecord = useCallback((view: TelecomView, recordId: string) => {
-    setMode(view as AppMode);
+    setMode('xena');
     setContextView(view);
     telecom.selectRecord(view, recordId);
   }, [telecom]);
 
-  const displayRecord = matchedRecord || telecom.selectedRecord;
+  const displayRecord = telecom.selectedRecord || matchedRecord;
 
   const isXenaMode = mode === 'xena';
   const isReady = boot.bootState === 'ready';
@@ -204,7 +204,7 @@ export function ChatShell() {
             <RightPanel
               visible
               selectedRecord={displayRecord}
-              activeView={matchedView || contextView}
+              activeView={contextView}
             />
           </>
         ) : (
