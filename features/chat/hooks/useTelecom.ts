@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { TelecomApiResponse, TelecomRecord, TelecomView } from '@/lib/types';
 
 const TELECOM_REFRESH_INTERVAL = 60000;
@@ -63,6 +63,11 @@ export function useTelecom(
   const [telecomError, setTelecomError] = useState<Record<TelecomView, string | null>>(emptyErrors);
   const [telecomLoadedAt, setTelecomLoadedAt] = useState<Record<TelecomView, string | null>>(emptyLoadedAt);
   const [selectedRecordIds, setSelectedRecordIds] = useState<Record<TelecomView, string | null>>(emptySelected);
+  const telecomDataRef = useRef(telecomData);
+
+  useEffect(() => {
+    telecomDataRef.current = telecomData;
+  }, [telecomData]);
 
   const fetchTelecomPayload = useCallback(
     async (view: TelecomView, recordId?: string) => {
@@ -99,7 +104,7 @@ export function useTelecom(
 
   const loadTelecomView = useCallback(
     async (view: TelecomView, force = false, recordId?: string) => {
-      if (!recordId && !force && telecomData[view].length > 0) return;
+      if (!recordId && !force && telecomDataRef.current[view].length > 0) return;
 
       setTelecomLoading((prev) => ({ ...prev, [view]: true }));
       setTelecomError((prev) => ({ ...prev, [view]: null }));
@@ -114,7 +119,7 @@ export function useTelecom(
         setTelecomLoading((prev) => ({ ...prev, [view]: false }));
       }
     },
-    [fetchTelecomPayload, applyPayload, telecomData],
+    [fetchTelecomPayload, applyPayload],
   );
 
   const focusRecord = useCallback(
@@ -126,6 +131,7 @@ export function useTelecom(
   );
 
   const clearOperationalContext = useCallback(() => {
+    telecomDataRef.current = { ...emptyData };
     setTelecomData({ ...emptyData });
     setSelectedRecordIds({ ...emptySelected });
     setTelecomLoadedAt({ ...emptyLoadedAt });
@@ -140,10 +146,10 @@ export function useTelecom(
   useEffect(() => {
     if (!enablePolling) return;
     const interval = setInterval(() => {
-      void loadTelecomView(activeView, true);
+      void loadTelecomView(activeView, true, selectedRecordIds[activeView] ?? undefined);
     }, TELECOM_REFRESH_INTERVAL);
     return () => clearInterval(interval);
-  }, [activeView, loadTelecomView, enablePolling]);
+  }, [activeView, loadTelecomView, enablePolling, selectedRecordIds]);
 
   const records = telecomData[activeView];
 

@@ -1,9 +1,9 @@
 'use client';
 
-import { useMemo, useState, useCallback } from 'react';
+import { useMemo, useState, useCallback, useEffect } from 'react';
 import type { TelecomRecord, TelecomView } from '@/lib/types';
 import { useTelecom } from '../hooks/useTelecom';
-import { useTelecomMutation } from '../hooks/useTelecomMutation';
+import { useTelecomMutation, type MutationResult } from '../hooks/useTelecomMutation';
 import { useAuthToken } from '@/features/auth/AuthWrapper';
 import { cn } from '../chat-utils';
 import {
@@ -72,9 +72,10 @@ type StatusFilter = 'all' | 'active' | 'closed' | string;
 interface ModuleDashboardProps {
   view: TelecomView;
   onBackToXena: () => void;
+  initialRecordId?: string | null;
 }
 
-export function ModuleDashboard({ view, onBackToXena }: ModuleDashboardProps) {
+export function ModuleDashboard({ view, onBackToXena, initialRecordId }: ModuleDashboardProps) {
   const getAuthToken = useAuthToken();
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
@@ -89,7 +90,7 @@ export function ModuleDashboard({ view, onBackToXena }: ModuleDashboardProps) {
     telecomError,
     loadTelecomView,
   } = useTelecom(view, getAuthToken, search, {
-    autoLoadOnMount: true,
+    autoLoadOnMount: !initialRecordId,
     enablePolling: true,
   });
 
@@ -131,11 +132,16 @@ export function ModuleDashboard({ view, onBackToXena }: ModuleDashboardProps) {
     ];
   }, [view, records]);
 
+  useEffect(() => {
+    if (!initialRecordId) return;
+    void loadTelecomView(view, true, initialRecordId);
+  }, [view, initialRecordId, loadTelecomView]);
+
   const handleStatusChange = useCallback(
     async (recordId: string, newStatus: string) => {
       const result = await updateRecord(view, recordId, { status: newStatus });
       if (result.ok) {
-        void loadTelecomView(view, true);
+        void loadTelecomView(view, true, result.recordId ?? recordId);
       } else {
         console.error('Status update failed:', result.error);
       }
@@ -147,7 +153,7 @@ export function ModuleDashboard({ view, onBackToXena }: ModuleDashboardProps) {
     async (recordId: string, field: string, value: string) => {
       const result = await updateRecord(view, recordId, { [field]: value });
       if (result.ok) {
-        void loadTelecomView(view, true);
+        void loadTelecomView(view, true, result.recordId ?? recordId);
       } else {
         console.error('Update failed:', result.error);
       }
@@ -160,7 +166,7 @@ export function ModuleDashboard({ view, onBackToXena }: ModuleDashboardProps) {
       const result = await createRecord(view, fields);
       if (result.ok) {
         setShowCreateModal(false);
-        void loadTelecomView(view, true);
+        void loadTelecomView(view, true, result.recordId ?? result.item?.recordId);
       } else {
         console.error('Create failed:', result.error);
       }
@@ -220,7 +226,7 @@ export function ModuleDashboard({ view, onBackToXena }: ModuleDashboardProps) {
           </button>
           <button
             className={styles.moduleRefresh}
-            onClick={() => void loadTelecomView(view, true)}
+            onClick={() => void loadTelecomView(view, true, selectedRecord?.recordId)}
             type="button"
           >
             Refresh
@@ -672,7 +678,7 @@ function CreateRecordModal({
   view: TelecomView;
   statuses: StatusDef[];
   onClose: () => void;
-  onCreate: (fields: Record<string, unknown>) => Promise<{ ok: boolean; error?: string }>;
+  onCreate: (fields: Record<string, unknown>) => Promise<MutationResult>;
 }) {
   const [title, setTitle] = useState('');
   const [summary, setSummary] = useState('');
