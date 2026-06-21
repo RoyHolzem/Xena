@@ -34,6 +34,7 @@ export function ChatShell() {
 
   const [mode, setMode] = useState<AppMode>('xena');
   const [contextView, setContextView] = useState<TelecomView>('incidents');
+  const [moduleFocusRecord, setModuleFocusRecord] = useState<{ view: TelecomView; recordId: string } | null>(null);
   const [search] = useState('');
   const [selectedModel, setSelectedModel] = useState(DEFAULT_MODEL);
   const [theme, setTheme] = useState<'dark' | 'light'>('dark');
@@ -131,10 +132,16 @@ export function ChatShell() {
   const handleNavigateToRecord = useCallback((view: TelecomView, recordId: string) => {
     setMode(view as AppMode);
     setContextView(view);
+    setModuleFocusRecord({ view, recordId });
     telecom.selectRecord(view, recordId);
   }, [telecom]);
 
-  const displayRecord = matchedRecord || telecom.selectedRecord;
+  const handleModuleFocusRecordHandled = useCallback(() => {
+    setModuleFocusRecord(null);
+  }, []);
+
+  const displayRecord = telecom.selectedRecord || matchedRecord;
+  const displayView = telecom.selectedRecord ? contextView : matchedView || contextView;
 
   const isXenaMode = mode === 'xena';
   const isReady = boot.bootState === 'ready';
@@ -204,13 +211,15 @@ export function ChatShell() {
             <RightPanel
               visible
               selectedRecord={displayRecord}
-              activeView={matchedView || contextView}
+              activeView={displayView}
             />
           </>
         ) : (
           <ModuleDashboard
             view={mode as TelecomView}
             onBackToXena={() => setMode('xena')}
+            focusRecordId={moduleFocusRecord?.view === mode ? moduleFocusRecord.recordId : null}
+            onFocusRecordHandled={handleModuleFocusRecordHandled}
           />
         )}
       </div>

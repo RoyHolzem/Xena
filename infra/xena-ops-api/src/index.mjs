@@ -167,6 +167,23 @@ function generateRecordId(type) {
   return `${prefix}-${year}-${seq}`;
 }
 
+function isConditionalCheckFailed(error) {
+  return error && typeof error === 'object' && error.name === 'ConditionalCheckFailedException';
+}
+
+function buildCreateItem(type, body, recordId, now) {
+  const allowed = EDITABLE_FIELDS[type] || [];
+  const item = { recordId, createdAt: now, updatedAt: now, startTime: now };
+  for (const field of allowed) {
+    if (body[field] !== undefined && body[field] !== null) {
+      item[field] = body[field];
+    }
+  }
+  // Ensure startTime is set
+  if (!item.startTime) item.startTime = now;
+  return item;
+}
+
 function parseBody(event) {
   try {
     let body = event.body;
@@ -193,24 +210,46 @@ async function createRecord(type, body) {
   }
 
   const now = new Date().toISOString();
-  const recordId = body.recordId || generateRecordId(type);
+  const requestedRecordId = typeof body.recordId === 'string' ? body.recordId.trim() : '';
 
-  const allowed = EDITABLE_FIELDS[type] || [];
-  const item = { recordId, createdAt: now, updatedAt: now, startTime: now };
-  for (const field of allowed) {
-    if (body[field] !== undefined && body[field] !== null) {
-      item[field] = body[field];
+  for (let attempt = 0; attempt < 5; attempt++) {
+    const recordId = requestedRecordId || generateRecordId(type);
+    const item = buildCreateItem(type, body, recordId, now);
+
+    try {
+      await ddb.send(new PutCommand({
+        TableName: TABLES[type],
+        Item: item,
+        ConditionExpression: 'attribute_not_exists(recordId)',
+      }));
+
+      return {
+        statusCode: 201,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ok: true, recordId, item: normalize(item) }),
+      };
+    } catch (err) {
+      if (isConditionalCheckFailed(err)) {
+        if (!requestedRecordId && attempt < 4) continue;
+        return {
+          statusCode: 409,
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ ok: false, error: `Record ${recordId} already exists` }),
+        };
+      }
+
+      return {
+        statusCode: 500,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ok: false, error: err instanceof Error ? err.message : 'Failed to create record' }),
+      };
     }
   }
-  // Ensure startTime is set
-  if (!item.startTime) item.startTime = now;
-
-  await ddb.send(new PutCommand({ TableName: TABLES[type], Item: item }));
 
   return {
-    statusCode: 201,
+    statusCode: 409,
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ ok: true, recordId, item: normalize(item) }),
+    body: JSON.stringify({ ok: false, error: 'Failed to generate a unique recordId' }),
   };
 }
 
