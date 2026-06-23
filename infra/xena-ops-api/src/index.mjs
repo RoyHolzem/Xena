@@ -2,6 +2,7 @@ import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
 import { DynamoDBDocumentClient, ScanCommand, GetCommand, PutCommand, UpdateCommand } from '@aws-sdk/lib-dynamodb';
 
 const ddb = DynamoDBDocumentClient.from(new DynamoDBClient({ region: process.env.AWS_REGION || 'eu-central-1' }));
+const opsApiToken = (process.env.XENA_OPS_API_TOKEN || '').trim();
 
 const TABLES = {
   incidents: process.env.INCIDENTS_TABLE || 'roy-telecom-incidents-lux',
@@ -80,6 +81,26 @@ const EDITABLE_FIELDS = {
 
 // Fields required for creation
 const REQUIRED_CREATE_FIELDS = ['title', 'status', 'severity'];
+
+function unauthorized() {
+  return {
+    statusCode: 401,
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ ok: false, error: 'Unauthorized' }),
+  };
+}
+
+function getAuthorizationHeader(event) {
+  return event.headers?.authorization || event.headers?.Authorization || '';
+}
+
+function isAuthorized(event) {
+  if (!opsApiToken) {
+    console.error('xena-ops-api refused request because XENA_OPS_API_TOKEN is not configured');
+    return false;
+  }
+  return getAuthorizationHeader(event).trim() === `Bearer ${opsApiToken}`;
+}
 
 function toIso(v) { return (typeof v === 'string' && v) ? v : new Date(0).toISOString(); }
 
@@ -332,6 +353,10 @@ function matchPostRoute(route) {
 
 export const handler = async (event) => {
   const route = `${event.requestContext?.http?.method || 'GET'} ${event.rawPath || event.path || '/'}`;
+
+  if (!isAuthorized(event)) {
+    return unauthorized();
+  }
 
   // GET routes
   const getHandle = GET_ROUTES[route];
