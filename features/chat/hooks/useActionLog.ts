@@ -81,7 +81,7 @@ function parseActionsFromText(text: string): Array<{ label: string; detail?: str
   const actions: Array<{ label: string; detail?: string; icon: string; expanded?: string }> = [];
 
   // Record ID patterns
-  const recordRe = /\b(INCIDENT-LUX-\d+|EVENT-LUX-\d+|PW-LUX-\d+|ORDER-LUX-\d+)\b/g;
+  const recordRe = /\b((?:INCIDENT|EVENT|PW|ORDER)-LUX-\d{4}-\d{4})\b/g;
   let match: RegExpExecArray | null;
   const seenRecords = new Set<string>();
   while ((match = recordRe.exec(text)) !== null) {

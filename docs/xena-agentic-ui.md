@@ -167,7 +167,7 @@ The Next.js chat API route (`app/api/chat/route.ts`) automatically injects `xena
 - The server-side `createXenaUiInjector()` TransformStream scans each `data:` SSE line for `choices[0].delta.content` matching record ID patterns.
 - When a match is found, it injects an additional `data:` line: `{ "type": "xena_ui", "uiActions": [{ "type": "OPEN_INCIDENT", "recordId": "..." }] }`.
 - Each record ID is emitted at most once per request (deduped via `Set`).
-- Recognized patterns: `INCIDENT-LUX-*`, `EVENT-LUX-*`, `PW-LUX-*`.
+- Recognized patterns: `INCIDENT-LUX-YYYY-XXXX`, `EVENT-LUX-YYYY-XXXX`, `PW-LUX-YYYY-XXXX`, `ORDER-LUX-YYYY-XXXX`.
 
 **Example SSE stream (what the browser receives):**
 

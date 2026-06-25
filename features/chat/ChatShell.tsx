@@ -105,7 +105,7 @@ export function ChatShell() {
   useActionLogSync(actionLog, chat.presence, chat.messages, getAuthToken);
 
   useEffect(() => {
-    const views: TelecomView[] = ['incidents', 'events', 'planned-works'];
+    const views: TelecomView[] = ['incidents', 'events', 'planned-works', 'orders'];
     for (const view of views) {
       void telecom.loadTelecomView(view, true);
     }
@@ -211,6 +211,7 @@ export function ChatShell() {
           <ModuleDashboard
             view={mode as TelecomView}
             onBackToXena={() => setMode('xena')}
+            initialRecordId={telecom.selectedRecordIds[mode as TelecomView]}
           />
         )}
       </div>

@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState, useCallback } from 'react';
+import { useMemo, useState, useCallback, useEffect, useRef } from 'react';
 import type { TelecomRecord, TelecomView } from '@/lib/types';
 import { useTelecom } from '../hooks/useTelecom';
 import { useTelecomMutation } from '../hooks/useTelecomMutation';
@@ -72,13 +72,15 @@ type StatusFilter = 'all' | 'active' | 'closed' | string;
 interface ModuleDashboardProps {
   view: TelecomView;
   onBackToXena: () => void;
+  initialRecordId?: string | null;
 }
 
-export function ModuleDashboard({ view, onBackToXena }: ModuleDashboardProps) {
+export function ModuleDashboard({ view, onBackToXena, initialRecordId }: ModuleDashboardProps) {
   const getAuthToken = useAuthToken();
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const appliedInitialRecordRef = useRef<string | null>(null);
 
   const {
     records,
@@ -89,7 +91,7 @@ export function ModuleDashboard({ view, onBackToXena }: ModuleDashboardProps) {
     telecomError,
     loadTelecomView,
   } = useTelecom(view, getAuthToken, search, {
-    autoLoadOnMount: true,
+    autoLoadOnMount: !initialRecordId,
     enablePolling: true,
   });
 
@@ -97,6 +99,14 @@ export function ModuleDashboard({ view, onBackToXena }: ModuleDashboardProps) {
 
   const meta = VIEW_META.find((v) => v.key === view);
   const statuses = STATUS_CONFIG[view];
+
+  useEffect(() => {
+    if (!initialRecordId) return;
+    const selectionKey = `${view}:${initialRecordId}`;
+    if (appliedInitialRecordRef.current === selectionKey) return;
+    appliedInitialRecordRef.current = selectionKey;
+    void loadTelecomView(view, true, initialRecordId);
+  }, [view, initialRecordId, loadTelecomView]);
 
   // Apply status filter on top of search filter
   const filteredRecords = useMemo(() => {
