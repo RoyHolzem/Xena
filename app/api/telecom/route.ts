@@ -486,14 +486,9 @@ function generateRecordId(view: TelecomView): string {
 const MAX_GENERATED_ID_ATTEMPTS = 5;
 
 function isConditionalCheckFailed(error: unknown): boolean {
-  return (
-    error instanceof Error && error.name === 'ConditionalCheckFailedException'
-  ) || (
-    Boolean(error) &&
-    typeof error === 'object' &&
-    'name' in error &&
-    error.name === 'ConditionalCheckFailedException'
-  );
+  if (error instanceof Error && error.name === 'ConditionalCheckFailedException') return true;
+  if (!error || typeof error !== 'object') return false;
+  return (error as { name?: unknown }).name === 'ConditionalCheckFailedException';
 }
 
 function buildCreateItem(view: TelecomView, body: Record<string, unknown>, recordId: string, now: string) {
