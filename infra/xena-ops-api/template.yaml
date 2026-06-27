@@ -13,6 +13,13 @@ Globals:
         EVENTS_TABLE: roy-telecom-events-lux
         PLANNED_WORKS_TABLE: roy-telecom-planned-works-lux
         ORDERS_TABLE: roy-telecom-orders-lux
+        XENA_OPS_API_TOKEN: !Ref OpsApiBearerToken
+
+Parameters:
+  OpsApiBearerToken:
+    Type: String
+    NoEcho: true
+    Description: Bearer token required in the Authorization header for all ops API routes.
 
 Resources:
   XenaOpsFunction:
