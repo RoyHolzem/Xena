@@ -34,6 +34,7 @@ export function ChatShell() {
 
   const [mode, setMode] = useState<AppMode>('xena');
   const [contextView, setContextView] = useState<TelecomView>('incidents');
+  const [moduleInitialRecord, setModuleInitialRecord] = useState<{ view: TelecomView; recordId: string } | null>(null);
   const [search] = useState('');
   const [selectedModel, setSelectedModel] = useState(DEFAULT_MODEL);
   const [theme, setTheme] = useState<'dark' | 'light'>('dark');
@@ -50,6 +51,13 @@ export function ChatShell() {
       return next;
     });
   }, []);
+
+  const handleModeChange = useCallback((nextMode: AppMode) => {
+    setMode(nextMode);
+    if (nextMode === 'xena' || moduleInitialRecord?.view !== nextMode) {
+      setModuleInitialRecord(null);
+    }
+  }, [moduleInitialRecord]);
 
   const telecom = useTelecom(contextView, getAuthToken, search, {
     onContextViewChange: setContextView,
@@ -129,12 +137,13 @@ export function ChatShell() {
 
   // Navigate to a record: switch mode & view, select the record
   const handleNavigateToRecord = useCallback((view: TelecomView, recordId: string) => {
+    setModuleInitialRecord({ view, recordId });
     setMode(view as AppMode);
     setContextView(view);
     telecom.selectRecord(view, recordId);
   }, [telecom]);
 
-  const displayRecord = matchedRecord || telecom.selectedRecord;
+  const displayRecord = telecom.selectedRecord || matchedRecord;
 
   const isXenaMode = mode === 'xena';
   const isReady = boot.bootState === 'ready';
@@ -158,7 +167,7 @@ export function ChatShell() {
     <div className={styles.shell}>
       <TopNav
         mode={mode}
-        setMode={setMode}
+        setMode={handleModeChange}
         ghStatus={ghStatus}
         ghCommit={ghCommit}
         models={models}
@@ -210,7 +219,11 @@ export function ChatShell() {
         ) : (
           <ModuleDashboard
             view={mode as TelecomView}
-            onBackToXena={() => setMode('xena')}
+            initialRecordId={moduleInitialRecord?.view === mode ? moduleInitialRecord.recordId : undefined}
+            onBackToXena={() => {
+              setModuleInitialRecord(null);
+              setMode('xena');
+            }}
           />
         )}
       </div>

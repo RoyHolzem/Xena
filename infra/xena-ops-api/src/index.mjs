@@ -2,6 +2,8 @@ import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
 import { DynamoDBDocumentClient, ScanCommand, GetCommand, PutCommand, UpdateCommand } from '@aws-sdk/lib-dynamodb';
 
 const ddb = DynamoDBDocumentClient.from(new DynamoDBClient({ region: process.env.AWS_REGION || 'eu-central-1' }));
+const OPS_API_TOKEN = process.env.XENA_OPS_API_TOKEN || '';
+const MAX_GENERATED_ID_ATTEMPTS = 5;
 
 const TABLES = {
   incidents: process.env.INCIDENTS_TABLE || 'roy-telecom-incidents-lux',
@@ -180,6 +182,28 @@ function parseBody(event) {
   }
 }
 
+function isAuthorized(event) {
+  if (!OPS_API_TOKEN) {
+    console.error('xena-ops-api missing XENA_OPS_API_TOKEN');
+    return false;
+  }
+  const headers = event.headers || {};
+  const authHeader = headers.authorization || headers.Authorization || '';
+  return authHeader === `Bearer ${OPS_API_TOKEN}`;
+}
+
+function unauthorized() {
+  return {
+    statusCode: 401,
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ ok: false, error: 'Unauthorized' }),
+  };
+}
+
+function isConditionalCheckFailed(error) {
+  return error?.name === 'ConditionalCheckFailedException';
+}
+
 async function createRecord(type, body) {
   if (!body) return { statusCode: 400, body: JSON.stringify({ ok: false, error: 'Invalid JSON body' }) };
 
@@ -193,24 +217,50 @@ async function createRecord(type, body) {
   }
 
   const now = new Date().toISOString();
-  const recordId = body.recordId || generateRecordId(type);
+  const requestedRecordId = typeof body.recordId === 'string' ? body.recordId.trim() : '';
 
   const allowed = EDITABLE_FIELDS[type] || [];
-  const item = { recordId, createdAt: now, updatedAt: now, startTime: now };
+  const baseItem = { createdAt: now, updatedAt: now, startTime: now };
   for (const field of allowed) {
     if (body[field] !== undefined && body[field] !== null) {
-      item[field] = body[field];
+      baseItem[field] = body[field];
     }
   }
-  // Ensure startTime is set
-  if (!item.startTime) item.startTime = now;
 
-  await ddb.send(new PutCommand({ TableName: TABLES[type], Item: item }));
+  const attempts = requestedRecordId ? 1 : MAX_GENERATED_ID_ATTEMPTS;
+  let recordId = requestedRecordId || generateRecordId(type);
+
+  for (let attempt = 1; attempt <= attempts; attempt++) {
+    const item = { recordId, ...baseItem };
+    try {
+      await ddb.send(new PutCommand({
+        TableName: TABLES[type],
+        Item: item,
+        ConditionExpression: 'attribute_not_exists(recordId)',
+      }));
+
+      return {
+        statusCode: 201,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ok: true, recordId, item: normalize(item) }),
+      };
+    } catch (err) {
+      if (!isConditionalCheckFailed(err)) throw err;
+      if (requestedRecordId || attempt === attempts) {
+        return {
+          statusCode: 409,
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ ok: false, error: `Record ${recordId} already exists` }),
+        };
+      }
+      recordId = generateRecordId(type);
+    }
+  }
 
   return {
-    statusCode: 201,
+    statusCode: 409,
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ ok: true, recordId, item: normalize(item) }),
+    body: JSON.stringify({ ok: false, error: 'Failed to allocate a unique record ID' }),
   };
 }
 
@@ -303,6 +353,10 @@ function matchPostRoute(route) {
 export const handler = async (event) => {
   const route = `${event.requestContext?.http?.method || 'GET'} ${event.rawPath || event.path || '/'}`;
 
+  if (!isAuthorized(event)) {
+    return unauthorized();
+  }
+
   // GET routes
   const getHandle = GET_ROUTES[route];
   if (getHandle) {
@@ -326,17 +380,35 @@ export const handler = async (event) => {
   // POST routes (create)
   const postType = matchPostRoute(route);
   if (postType) {
-    const body = parseBody(event);
-    const result = await createRecord(postType, body);
-    return { ...result, headers: { 'Content-Type': 'application/json' } };
+    try {
+      const body = parseBody(event);
+      const result = await createRecord(postType, body);
+      return { ...result, headers: { 'Content-Type': 'application/json' } };
+    } catch (err) {
+      console.error('xena-ops-api error:', err);
+      return {
+        statusCode: 500,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ok: false, error: err.message }),
+      };
+    }
   }
 
   // PUT routes (update)
   const putMatch = matchPutRoute(route);
   if (putMatch) {
-    const body = parseBody(event);
-    const result = await updateRecord(putMatch.type, putMatch.recordId, body);
-    return { ...result, headers: { 'Content-Type': 'application/json' } };
+    try {
+      const body = parseBody(event);
+      const result = await updateRecord(putMatch.type, putMatch.recordId, body);
+      return { ...result, headers: { 'Content-Type': 'application/json' } };
+    } catch (err) {
+      console.error('xena-ops-api error:', err);
+      return {
+        statusCode: 500,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ok: false, error: err.message }),
+      };
+    }
   }
 
   return {
