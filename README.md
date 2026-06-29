@@ -73,6 +73,7 @@ A dedicated HTTPS API for safe access to operational data. The Lambda uses an IA
 **IaC**: `infra/xena-ops-api/template.yaml`
 **API URL**: `https://tsbmgsi20f.execute-api.eu-central-1.amazonaws.com`
 **Lambda**: `xena-ops-api` (Node.js 20)
+**Auth**: all routes require `Authorization: Bearer $XENA_OPS_API_TOKEN`
 
 ### Read Endpoints
 
@@ -127,6 +128,7 @@ aws cloudformation deploy \
   --template-file packaged.yaml \
   --stack-name xena-ops-api \
   --capabilities CAPABILITY_AUTO_EXPAND CAPABILITY_IAM \
+  --parameter-overrides OpsApiBearerToken="$XENA_OPS_API_TOKEN" \
   --region eu-central-1
 ```
 
@@ -437,7 +439,8 @@ A custom OpenClaw gateway plugin (`web-request`) provides `web_post` and `web_pu
 {
   "enabled": true,
   "config": {
-    "allowUrls": "https://tsbmgsi20f.execute-api.eu-central-1.amazonaws.com"
+    "allowUrls": "https://tsbmgsi20f.execute-api.eu-central-1.amazonaws.com",
+    "authEnvVar": "XENA_OPS_API_TOKEN"
   }
 }
 ```

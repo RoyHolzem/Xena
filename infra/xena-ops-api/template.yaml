@@ -14,6 +14,12 @@ Globals:
         PLANNED_WORKS_TABLE: roy-telecom-planned-works-lux
         ORDERS_TABLE: roy-telecom-orders-lux
 
+Parameters:
+  OpsApiBearerToken:
+    Type: String
+    NoEcho: true
+    Description: Bearer token required in the Authorization header for every Operations API route.
+
 Resources:
   XenaOpsFunction:
     Type: AWS::Serverless::Function
@@ -22,6 +28,9 @@ Resources:
       Handler: index.handler
       CodeUri: src/
       Description: Xena Operations API — CRUD for telecom DynamoDB tables
+      Environment:
+        Variables:
+          XENA_OPS_API_TOKEN: !Ref OpsApiBearerToken
       Policies:
         - Statement:
             Sid: XenaOpsDynamoDBCrud
