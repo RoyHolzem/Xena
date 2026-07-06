@@ -10,9 +10,8 @@ export async function POST(request: Request) {
     return Response.json({ error: 'Missing auth token' }, { status: 401 });
   }
 
-  try {
-    await verifyToken(authHeader.slice(7));
-  } catch {
+  const user = await verifyToken(authHeader);
+  if (!user) {
     return Response.json({ error: 'Invalid token' }, { status: 401 });
   }
 

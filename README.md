@@ -437,7 +437,8 @@ A custom OpenClaw gateway plugin (`web-request`) provides `web_post` and `web_pu
 {
   "enabled": true,
   "config": {
-    "allowUrls": "https://tsbmgsi20f.execute-api.eu-central-1.amazonaws.com"
+    "allowUrls": "https://tsbmgsi20f.execute-api.eu-central-1.amazonaws.com",
+    "authEnvVar": "XENA_OPS_API_TOKEN"
   }
 }
 ```
