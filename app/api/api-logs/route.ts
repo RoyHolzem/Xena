@@ -6,14 +6,9 @@ const cwLogs = new CloudWatchLogsClient({ region: 'eu-central-1' });
 export async function POST(request: Request) {
   // Verify auth
   const authHeader = request.headers.get('Authorization');
-  if (!authHeader?.startsWith('Bearer ')) {
-    return Response.json({ error: 'Missing auth token' }, { status: 401 });
-  }
-
-  try {
-    await verifyToken(authHeader.slice(7));
-  } catch {
-    return Response.json({ error: 'Invalid token' }, { status: 401 });
+  const user = await verifyToken(authHeader);
+  if (!user) {
+    return Response.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
   const { afterTimestamp }: { afterTimestamp?: number } = await request.json();
