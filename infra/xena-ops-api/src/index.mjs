@@ -10,6 +10,9 @@ const TABLES = {
   orders: process.env.ORDERS_TABLE || 'roy-telecom-orders-lux',
 };
 
+const WRITE_BEARER_TOKEN = process.env.XENA_OPS_API_TOKEN;
+const CREATE_ID_ATTEMPTS = 5;
+
 const SEVERITY = { SEV1: 0, SEV2: 1, SEV3: 2, SEV4: 3 };
 
 const STATUS_ORDER = {
@@ -167,6 +170,33 @@ function generateRecordId(type) {
   return `${prefix}-${year}-${seq}`;
 }
 
+function isConditionalCheckFailed(err) {
+  return err instanceof Error && err.name === 'ConditionalCheckFailedException';
+}
+
+function json(statusCode, body) {
+  return {
+    statusCode,
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  };
+}
+
+function authorizeWrite(event) {
+  if (!WRITE_BEARER_TOKEN) {
+    console.error('XENA_OPS_API_TOKEN is not configured; denying write route');
+    return json(500, { ok: false, error: 'Write authorization is not configured' });
+  }
+
+  const headers = event.headers || {};
+  const authHeader = headers.Authorization || headers.authorization || '';
+  if (authHeader !== `Bearer ${WRITE_BEARER_TOKEN}`) {
+    return json(401, { ok: false, error: 'Unauthorized' });
+  }
+
+  return null;
+}
+
 function parseBody(event) {
   try {
     let body = event.body;
@@ -192,26 +222,49 @@ async function createRecord(type, body) {
     return { statusCode: 400, body: JSON.stringify({ ok: false, error: `Invalid status '${body.status}'. Valid: ${VALID_STATUSES[type].join(', ')}` }) };
   }
 
-  const now = new Date().toISOString();
-  const recordId = body.recordId || generateRecordId(type);
+  const explicitRecordId = typeof body.recordId === 'string' ? body.recordId.trim() : '';
+  const attempts = explicitRecordId ? 1 : CREATE_ID_ATTEMPTS;
 
-  const allowed = EDITABLE_FIELDS[type] || [];
-  const item = { recordId, createdAt: now, updatedAt: now, startTime: now };
-  for (const field of allowed) {
-    if (body[field] !== undefined && body[field] !== null) {
-      item[field] = body[field];
+  for (let attempt = 0; attempt < attempts; attempt++) {
+    const now = new Date().toISOString();
+    const recordId = explicitRecordId || generateRecordId(type);
+
+    const allowed = EDITABLE_FIELDS[type] || [];
+    const item = { recordId, createdAt: now, updatedAt: now, startTime: now };
+    for (const field of allowed) {
+      if (body[field] !== undefined && body[field] !== null) {
+        item[field] = body[field];
+      }
+    }
+    // Ensure startTime is set
+    if (!item.startTime) item.startTime = now;
+
+    try {
+      await ddb.send(new PutCommand({
+        TableName: TABLES[type],
+        Item: item,
+        ConditionExpression: 'attribute_not_exists(recordId)',
+      }));
+
+      return {
+        statusCode: 201,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ok: true, recordId, item: normalize(item) }),
+      };
+    } catch (err) {
+      if (isConditionalCheckFailed(err)) {
+        if (explicitRecordId) {
+          return json(409, { ok: false, error: `Record ${recordId} already exists` });
+        }
+        continue;
+      }
+
+      console.error('xena-ops-api create error:', err);
+      return json(500, { ok: false, error: err instanceof Error ? err.message : 'Failed to create record' });
     }
   }
-  // Ensure startTime is set
-  if (!item.startTime) item.startTime = now;
 
-  await ddb.send(new PutCommand({ TableName: TABLES[type], Item: item }));
-
-  return {
-    statusCode: 201,
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ ok: true, recordId, item: normalize(item) }),
-  };
+  return json(409, { ok: false, error: 'Unable to generate a unique record ID; please retry' });
 }
 
 async function updateRecord(type, recordId, body) {
@@ -326,6 +379,9 @@ export const handler = async (event) => {
   // POST routes (create)
   const postType = matchPostRoute(route);
   if (postType) {
+    const authFailure = authorizeWrite(event);
+    if (authFailure) return authFailure;
+
     const body = parseBody(event);
     const result = await createRecord(postType, body);
     return { ...result, headers: { 'Content-Type': 'application/json' } };
@@ -334,6 +390,9 @@ export const handler = async (event) => {
   // PUT routes (update)
   const putMatch = matchPutRoute(route);
   if (putMatch) {
+    const authFailure = authorizeWrite(event);
+    if (authFailure) return authFailure;
+
     const body = parseBody(event);
     const result = await updateRecord(putMatch.type, putMatch.recordId, body);
     return { ...result, headers: { 'Content-Type': 'application/json' } };
