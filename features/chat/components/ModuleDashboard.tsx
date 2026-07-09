@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState, useCallback } from 'react';
+import { useEffect, useMemo, useRef, useState, useCallback } from 'react';
 import type { TelecomRecord, TelecomView } from '@/lib/types';
 import { useTelecom } from '../hooks/useTelecom';
 import { useTelecomMutation } from '../hooks/useTelecomMutation';
@@ -71,14 +71,16 @@ type StatusFilter = 'all' | 'active' | 'closed' | string;
 
 interface ModuleDashboardProps {
   view: TelecomView;
+  selectedRecordId?: string;
   onBackToXena: () => void;
 }
 
-export function ModuleDashboard({ view, onBackToXena }: ModuleDashboardProps) {
+export function ModuleDashboard({ view, selectedRecordId, onBackToXena }: ModuleDashboardProps) {
   const getAuthToken = useAuthToken();
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const selectedRecordLoadKey = useRef<string | null>(null);
 
   const {
     records,
@@ -89,7 +91,7 @@ export function ModuleDashboard({ view, onBackToXena }: ModuleDashboardProps) {
     telecomError,
     loadTelecomView,
   } = useTelecom(view, getAuthToken, search, {
-    autoLoadOnMount: true,
+    autoLoadOnMount: !selectedRecordId,
     enablePolling: true,
   });
 
@@ -97,6 +99,15 @@ export function ModuleDashboard({ view, onBackToXena }: ModuleDashboardProps) {
 
   const meta = VIEW_META.find((v) => v.key === view);
   const statuses = STATUS_CONFIG[view];
+
+  useEffect(() => {
+    if (!selectedRecordId) return;
+    const loadKey = `${view}:${selectedRecordId}`;
+    if (selectedRecordLoadKey.current === loadKey) return;
+    selectedRecordLoadKey.current = loadKey;
+    setSelectedRecordIds((prev) => ({ ...prev, [view]: selectedRecordId }));
+    void loadTelecomView(view, true, selectedRecordId);
+  }, [loadTelecomView, selectedRecordId, setSelectedRecordIds, view]);
 
   // Apply status filter on top of search filter
   const filteredRecords = useMemo(() => {
