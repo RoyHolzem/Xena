@@ -1,7 +1,10 @@
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
 import { DynamoDBDocumentClient, ScanCommand, GetCommand, PutCommand, UpdateCommand } from '@aws-sdk/lib-dynamodb';
+import { timingSafeEqual } from 'node:crypto';
 
 const ddb = DynamoDBDocumentClient.from(new DynamoDBClient({ region: process.env.AWS_REGION || 'eu-central-1' }));
+const WRITE_BEARER_TOKEN = process.env.XENA_OPS_API_TOKEN || '';
+const MAX_CREATE_ID_ATTEMPTS = 5;
 
 const TABLES = {
   incidents: process.env.INCIDENTS_TABLE || 'roy-telecom-incidents-lux',
@@ -167,6 +170,51 @@ function generateRecordId(type) {
   return `${prefix}-${year}-${seq}`;
 }
 
+function getRequestedRecordId(body) {
+  if (typeof body?.recordId !== 'string') return null;
+  const recordId = body.recordId.trim();
+  return recordId || null;
+}
+
+function isConditionalCheckFailed(err) {
+  return err?.name === 'ConditionalCheckFailedException';
+}
+
+function createItemFromBody(type, body, recordId, now) {
+  const allowed = EDITABLE_FIELDS[type] || [];
+  const item = { recordId, createdAt: now, updatedAt: now, startTime: now };
+  for (const field of allowed) {
+    if (body[field] !== undefined && body[field] !== null) {
+      item[field] = body[field];
+    }
+  }
+  return item;
+}
+
+function getHeader(headers, name) {
+  if (!headers) return undefined;
+  const key = Object.keys(headers).find(k => k.toLowerCase() === name.toLowerCase());
+  return key ? headers[key] : undefined;
+}
+
+function hasWriteAuth(event) {
+  const header = getHeader(event.headers, 'authorization');
+  const prefix = 'Bearer ';
+  if (!WRITE_BEARER_TOKEN || typeof header !== 'string' || !header.startsWith(prefix)) return false;
+
+  const supplied = header.slice(prefix.length);
+  if (supplied.length !== WRITE_BEARER_TOKEN.length) return false;
+  return timingSafeEqual(Buffer.from(supplied), Buffer.from(WRITE_BEARER_TOKEN));
+}
+
+function unauthorizedResponse() {
+  return {
+    statusCode: 401,
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ ok: false, error: 'Unauthorized' }),
+  };
+}
+
 function parseBody(event) {
   try {
     let body = event.body;
@@ -193,24 +241,44 @@ async function createRecord(type, body) {
   }
 
   const now = new Date().toISOString();
-  const recordId = body.recordId || generateRecordId(type);
+  const requestedRecordId = getRequestedRecordId(body);
+  const attempts = requestedRecordId ? 1 : MAX_CREATE_ID_ATTEMPTS;
 
-  const allowed = EDITABLE_FIELDS[type] || [];
-  const item = { recordId, createdAt: now, updatedAt: now, startTime: now };
-  for (const field of allowed) {
-    if (body[field] !== undefined && body[field] !== null) {
-      item[field] = body[field];
+  for (let attempt = 0; attempt < attempts; attempt++) {
+    const recordId = requestedRecordId || generateRecordId(type);
+    const item = createItemFromBody(type, body, recordId, now);
+
+    try {
+      await ddb.send(new PutCommand({
+        TableName: TABLES[type],
+        Item: item,
+        ConditionExpression: 'attribute_not_exists(recordId)',
+      }));
+
+      return {
+        statusCode: 201,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ok: true, recordId, item: normalize(item) }),
+      };
+    } catch (err) {
+      if (isConditionalCheckFailed(err)) {
+        if (requestedRecordId) {
+          return {
+            statusCode: 409,
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ ok: false, error: `Record ${recordId} already exists` }),
+          };
+        }
+        continue;
+      }
+      throw err;
     }
   }
-  // Ensure startTime is set
-  if (!item.startTime) item.startTime = now;
-
-  await ddb.send(new PutCommand({ TableName: TABLES[type], Item: item }));
 
   return {
-    statusCode: 201,
+    statusCode: 409,
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ ok: true, recordId, item: normalize(item) }),
+    body: JSON.stringify({ ok: false, error: 'Could not generate a unique record ID. Please retry.' }),
   };
 }
 
@@ -326,6 +394,7 @@ export const handler = async (event) => {
   // POST routes (create)
   const postType = matchPostRoute(route);
   if (postType) {
+    if (!hasWriteAuth(event)) return unauthorizedResponse();
     const body = parseBody(event);
     const result = await createRecord(postType, body);
     return { ...result, headers: { 'Content-Type': 'application/json' } };
@@ -334,6 +403,7 @@ export const handler = async (event) => {
   // PUT routes (update)
   const putMatch = matchPutRoute(route);
   if (putMatch) {
+    if (!hasWriteAuth(event)) return unauthorizedResponse();
     const body = parseBody(event);
     const result = await updateRecord(putMatch.type, putMatch.recordId, body);
     return { ...result, headers: { 'Content-Type': 'application/json' } };
