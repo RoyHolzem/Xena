@@ -156,8 +156,8 @@ export function useTelecom(
   const selectedRecord = useMemo(() => {
     const selectedId = selectedRecordIds[activeView];
     if (!selectedId) return null;
-    return filteredRecords.find((record) => record.recordId === selectedId) ?? null;
-  }, [activeView, filteredRecords, selectedRecordIds]);
+    return records.find((record) => record.recordId === selectedId) ?? null;
+  }, [activeView, records, selectedRecordIds]);
 
   /**
    * Override the active view + selected record from chat context.

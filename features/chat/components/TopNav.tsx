@@ -14,6 +14,7 @@ const NAV_ITEMS: Array<{ key: AppMode; label: string; icon: string }> = [
   { key: 'incidents', label: 'Incidents', icon: '\u26a0' },
   { key: 'events', label: 'Events', icon: '\u26a1' },
   { key: 'planned-works', label: 'Maintenance', icon: '\u2699' },
+  { key: 'orders', label: 'Orders', icon: '\ud83d\udce6' },
 ];
 
 export type ModelFallbackInfo = {
