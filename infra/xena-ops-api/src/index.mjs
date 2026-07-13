@@ -26,6 +26,8 @@ const OPEN_STATUSES = {
   orders: s => !['COMPLETED', 'CANCELLED'].includes(s),
 };
 
+const CREATE_ID_MAX_ATTEMPTS = 5;
+
 // Valid statuses per entity type
 const VALID_STATUSES = {
   incidents: ['OPEN', 'ACKNOWLEDGED', 'IN_PROGRESS', 'MONITORING', 'RESOLVED', 'CLOSED'],
@@ -167,6 +169,16 @@ function generateRecordId(type) {
   return `${prefix}-${year}-${seq}`;
 }
 
+function isConditionalCheckFailed(err) {
+  return err?.name === 'ConditionalCheckFailedException';
+}
+
+function verifyWriteAuth(event) {
+  const expected = (process.env.XENA_OPS_API_TOKEN || '').trim();
+  const authHeader = event.headers?.authorization || event.headers?.Authorization || '';
+  return Boolean(expected) && authHeader === `Bearer ${expected}`;
+}
+
 function parseBody(event) {
   try {
     let body = event.body;
@@ -193,25 +205,47 @@ async function createRecord(type, body) {
   }
 
   const now = new Date().toISOString();
-  const recordId = body.recordId || generateRecordId(type);
+  const requestedRecordId = typeof body.recordId === 'string' && body.recordId.trim()
+    ? body.recordId.trim()
+    : null;
+  const maxAttempts = requestedRecordId ? 1 : CREATE_ID_MAX_ATTEMPTS;
 
   const allowed = EDITABLE_FIELDS[type] || [];
-  const item = { recordId, createdAt: now, updatedAt: now, startTime: now };
-  for (const field of allowed) {
-    if (body[field] !== undefined && body[field] !== null) {
-      item[field] = body[field];
+  for (let attempt = 0; attempt < maxAttempts; attempt++) {
+    const recordId = requestedRecordId || generateRecordId(type);
+    const item = { recordId, createdAt: now, updatedAt: now, startTime: now };
+    for (const field of allowed) {
+      if (body[field] !== undefined && body[field] !== null) {
+        item[field] = body[field];
+      }
+    }
+    // Ensure startTime is set
+    if (!item.startTime) item.startTime = now;
+
+    try {
+      await ddb.send(new PutCommand({
+        TableName: TABLES[type],
+        Item: item,
+        ConditionExpression: 'attribute_not_exists(recordId)',
+      }));
+
+      return {
+        statusCode: 201,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ok: true, recordId, item: normalize(item) }),
+      };
+    } catch (err) {
+      if (isConditionalCheckFailed(err)) {
+        if (requestedRecordId) {
+          return { statusCode: 409, body: JSON.stringify({ ok: false, error: `Record ${recordId} already exists` }) };
+        }
+        continue;
+      }
+      throw err;
     }
   }
-  // Ensure startTime is set
-  if (!item.startTime) item.startTime = now;
 
-  await ddb.send(new PutCommand({ TableName: TABLES[type], Item: item }));
-
-  return {
-    statusCode: 201,
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ ok: true, recordId, item: normalize(item) }),
-  };
+  return { statusCode: 409, body: JSON.stringify({ ok: false, error: 'Could not generate a unique record ID' }) };
 }
 
 async function updateRecord(type, recordId, body) {
@@ -326,6 +360,9 @@ export const handler = async (event) => {
   // POST routes (create)
   const postType = matchPostRoute(route);
   if (postType) {
+    if (!verifyWriteAuth(event)) {
+      return { statusCode: 401, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ok: false, error: 'Unauthorized' }) };
+    }
     const body = parseBody(event);
     const result = await createRecord(postType, body);
     return { ...result, headers: { 'Content-Type': 'application/json' } };
@@ -334,6 +371,9 @@ export const handler = async (event) => {
   // PUT routes (update)
   const putMatch = matchPutRoute(route);
   if (putMatch) {
+    if (!verifyWriteAuth(event)) {
+      return { statusCode: 401, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ok: false, error: 'Unauthorized' }) };
+    }
     const body = parseBody(event);
     const result = await updateRecord(putMatch.type, putMatch.recordId, body);
     return { ...result, headers: { 'Content-Type': 'application/json' } };
