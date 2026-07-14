@@ -1,5 +1,6 @@
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
 import { DynamoDBDocumentClient, ScanCommand, GetCommand, PutCommand, UpdateCommand } from '@aws-sdk/lib-dynamodb';
+import { timingSafeEqual } from 'node:crypto';
 
 const ddb = DynamoDBDocumentClient.from(new DynamoDBClient({ region: process.env.AWS_REGION || 'eu-central-1' }));
 
@@ -181,6 +182,16 @@ function parseBody(event) {
   }
 }
 
+function isAuthorizedWrite(event) {
+  const expectedToken = (process.env.XENA_OPS_API_TOKEN || '').trim();
+  const authHeader = (event.headers?.authorization || event.headers?.Authorization || '').trim();
+  const expectedHeader = `Bearer ${expectedToken}`;
+  const actual = Buffer.from(authHeader);
+  const expected = Buffer.from(expectedHeader);
+  if (!expectedToken || actual.length !== expected.length) return false;
+  return timingSafeEqual(actual, expected);
+}
+
 async function createRecord(type, body) {
   if (!body) return { statusCode: 400, body: JSON.stringify({ ok: false, error: 'Invalid JSON body' }) };
 
@@ -332,7 +343,16 @@ function matchPostRoute(route) {
 }
 
 export const handler = async (event) => {
-  const route = `${event.requestContext?.http?.method || 'GET'} ${event.rawPath || event.path || '/'}`;
+  const method = event.requestContext?.http?.method || 'GET';
+  const route = `${method} ${event.rawPath || event.path || '/'}`;
+
+  if ((method === 'POST' || method === 'PUT') && !isAuthorizedWrite(event)) {
+    return {
+      statusCode: 401,
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ok: false, error: 'Unauthorized' }),
+    };
+  }
 
   // GET routes
   const getHandle = GET_ROUTES[route];
