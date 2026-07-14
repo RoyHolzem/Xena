@@ -115,6 +115,7 @@ A dedicated HTTPS API for safe access to operational data. The Lambda uses an IA
 
 ```bash
 cd infra/xena-ops-api
+export XENA_OPS_API_TOKEN='<random-secret-at-least-32-characters>'
 
 aws cloudformation package \
   --template-file template.yaml \
@@ -127,6 +128,7 @@ aws cloudformation deploy \
   --template-file packaged.yaml \
   --stack-name xena-ops-api \
   --capabilities CAPABILITY_AUTO_EXPAND CAPABILITY_IAM \
+  --parameter-overrides OpsApiBearerToken="$XENA_OPS_API_TOKEN" \
   --region eu-central-1
 ```
 
@@ -437,10 +439,13 @@ A custom OpenClaw gateway plugin (`web-request`) provides `web_post` and `web_pu
 {
   "enabled": true,
   "config": {
-    "allowUrls": "https://tsbmgsi20f.execute-api.eu-central-1.amazonaws.com"
+    "allowUrls": "https://tsbmgsi20f.execute-api.eu-central-1.amazonaws.com",
+    "authEnvVar": "XENA_OPS_API_TOKEN"
   }
 }
 ```
+
+Set `XENA_OPS_API_TOKEN` in the gateway environment to the same secret supplied when deploying the Operations API.
 
 ## License
 
