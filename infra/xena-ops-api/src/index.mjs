@@ -80,6 +80,7 @@ const EDITABLE_FIELDS = {
 
 // Fields required for creation
 const REQUIRED_CREATE_FIELDS = ['title', 'status', 'severity'];
+const GENERATED_ID_ATTEMPTS = 5;
 
 function toIso(v) { return (typeof v === 'string' && v) ? v : new Date(0).toISOString(); }
 
@@ -192,25 +193,55 @@ async function createRecord(type, body) {
     return { statusCode: 400, body: JSON.stringify({ ok: false, error: `Invalid status '${body.status}'. Valid: ${VALID_STATUSES[type].join(', ')}` }) };
   }
 
-  const now = new Date().toISOString();
-  const recordId = body.recordId || generateRecordId(type);
+  if (body.recordId !== undefined && (typeof body.recordId !== 'string' || !body.recordId.trim())) {
+    return { statusCode: 400, body: JSON.stringify({ ok: false, error: 'recordId must be a non-empty string' }) };
+  }
 
+  const now = new Date().toISOString();
+  const requestedRecordId = typeof body.recordId === 'string' ? body.recordId.trim() : '';
   const allowed = EDITABLE_FIELDS[type] || [];
-  const item = { recordId, createdAt: now, updatedAt: now, startTime: now };
+  const fields = {};
   for (const field of allowed) {
     if (body[field] !== undefined && body[field] !== null) {
-      item[field] = body[field];
+      fields[field] = body[field];
     }
   }
-  // Ensure startTime is set
-  if (!item.startTime) item.startTime = now;
 
-  await ddb.send(new PutCommand({ TableName: TABLES[type], Item: item }));
+  const attempts = requestedRecordId ? 1 : GENERATED_ID_ATTEMPTS;
+  for (let attempt = 0; attempt < attempts; attempt++) {
+    const recordId = requestedRecordId || generateRecordId(type);
+    const item = { recordId, createdAt: now, updatedAt: now, startTime: now, ...fields };
+
+    try {
+      await ddb.send(new PutCommand({
+        TableName: TABLES[type],
+        Item: item,
+        ConditionExpression: 'attribute_not_exists(recordId)',
+      }));
+
+      return {
+        statusCode: 201,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ok: true, recordId, item: normalize(item) }),
+      };
+    } catch (error) {
+      if (error?.name === 'ConditionalCheckFailedException') {
+        if (!requestedRecordId && attempt + 1 < attempts) continue;
+        return {
+          statusCode: 409,
+          body: JSON.stringify({
+            ok: false,
+            error: requestedRecordId ? `Record ${recordId} already exists` : 'Failed to generate a unique recordId',
+          }),
+        };
+      }
+      throw error;
+    }
+  }
 
   return {
-    statusCode: 201,
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ ok: true, recordId, item: normalize(item) }),
+    statusCode: 409,
+    body: JSON.stringify({ ok: false, error: 'Failed to generate a unique recordId' }),
   };
 }
 
