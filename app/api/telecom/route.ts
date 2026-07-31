@@ -496,7 +496,8 @@ export async function POST(request: NextRequest) {
   }
 
   const validStatuses = VALID_STATUSES[view];
-  if (body.status && !validStatuses.includes(body.status as string)) {
+  // Reject empty/invalid status: falsy check would skip "" and still persist it.
+  if (body.status !== undefined && body.status !== null && !validStatuses.includes(body.status as string)) {
     return NextResponse.json({ ok: false, error: `Invalid status '${body.status}'. Valid: ${validStatuses.join(', ')}` }, { status: 400 });
   }
 
@@ -545,7 +546,8 @@ export async function PUT(request: NextRequest) {
   }
 
   const validStatuses = VALID_STATUSES[view];
-  if (body.status && !validStatuses.includes(body.status as string)) {
+  // Reject empty/invalid status: falsy check would skip "" and still persist it.
+  if (body.status !== undefined && body.status !== null && !validStatuses.includes(body.status as string)) {
     return NextResponse.json({ ok: false, error: `Invalid status '${body.status}'. Valid: ${validStatuses.join(', ')}` }, { status: 400 });
   }
 
