@@ -1,6 +1,6 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
-import { isPlannedWorkToday } from './index.mjs';
+import { isPlannedWorkToday } from './planned-works-today.mjs';
 
 describe('isPlannedWorkToday', () => {
   it('matches when maintenance window is today even if startTime is an older create stamp', () => {

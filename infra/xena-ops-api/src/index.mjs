@@ -1,5 +1,6 @@
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
 import { DynamoDBDocumentClient, ScanCommand, GetCommand, PutCommand, UpdateCommand } from '@aws-sdk/lib-dynamodb';
+import { isPlannedWorkToday } from './planned-works-today.mjs';
 
 const ddb = DynamoDBDocumentClient.from(new DynamoDBClient({ region: process.env.AWS_REGION || 'eu-central-1' }));
 
@@ -136,24 +137,6 @@ async function getOpen(table, type) {
   const items = await scanAll(table);
   const isOpen = OPEN_STATUSES[type] || (() => true);
   return items.filter(i => isOpen(i.status)).sort(sorter(type)).map(normalize);
-}
-
-/** True when a planned work's maintenance window overlaps `today` (UTC YYYY-MM-DD). */
-export function isPlannedWorkToday(item, today) {
-  // Prefer maintenance window fields: create always stamps startTime=now, so using
-  // startTime alone false-positives create-day works and false-negatives when
-  // endTime shadows a later maintenanceWindowEnd.
-  const startRaw = item.maintenanceWindowStart || item.startTime;
-  const endRaw = item.maintenanceWindowEnd || item.endTime;
-  const start = startRaw ? new Date(startRaw) : null;
-  const end = endRaw ? new Date(endRaw) : null;
-  if (!start || Number.isNaN(start.getTime())) return false;
-  const startDate = start.toISOString().slice(0, 10);
-  if (startDate === today) return true;
-  if (end && !Number.isNaN(end.getTime())) {
-    return today >= startDate && today <= end.toISOString().slice(0, 10);
-  }
-  return false;
 }
 
 async function getPlannedWorksToday(table) {
