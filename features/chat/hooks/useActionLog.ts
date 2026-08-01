@@ -1,7 +1,8 @@
 'use client';
 
-import { useEffect, useRef, useCallback, useState } from 'react';
+import { useEffect, useRef, useCallback, useState, useMemo } from 'react';
 import type { XenaActionEvent } from '@/lib/types';
+import { presenceLogActions } from './presence-log-actions.mjs';
 
 export type ActionLogEntry = {
   id: string;
@@ -13,6 +14,10 @@ export type ActionLogEntry = {
   status: 'running' | 'done' | 'error';
   icon: string;
 };
+
+export type ChatPresence = 'idle' | 'processing' | 'typing' | 'error';
+
+export { presenceLogActions };
 
 let counter = 0;
 function nextId(): string { return `a-${++counter}`; }
@@ -43,12 +48,21 @@ export function useActionLog() {
   }, []);
 
   const markAllRunningDone = useCallback(() => {
-    setActions((prev) =>
-      prev.map((e) => (e.status === 'running' ? { ...e, status: 'done' as const } : e)),
-    );
+    setActions((prev) => {
+      let changed = false;
+      const next = prev.map((e) => {
+        if (e.status !== 'running') return e;
+        changed = true;
+        return { ...e, status: 'done' as const };
+      });
+      return changed ? next : prev;
+    });
   }, []);
 
-  return { actions, addEntry, markAllRunningDone };
+  return useMemo(
+    () => ({ actions, addEntry, markAllRunningDone }),
+    [actions, addEntry, markAllRunningDone],
+  );
 }
 
 /** Handle an SSE action event from the server */
@@ -102,47 +116,26 @@ function parseActionsFromText(text: string): Array<{ label: string; detail?: str
 
 export function useActionLogSync(
   actionLog: ReturnType<typeof useActionLog>,
-  presence: 'idle' | 'processing' | 'typing' | 'error',
+  presence: ChatPresence,
   messages: Array<{ id: string; role: string; content: string; createdAt: string }>,
   getAuthToken: () => Promise<string | null>,
 ) {
   const prevPresenceRef = useRef(presence);
   const processedRef = useRef<Set<string>>(new Set());
+  const { addEntry, markAllRunningDone } = actionLog;
 
   useEffect(() => {
     const prev = prevPresenceRef.current;
     prevPresenceRef.current = presence;
 
-    if (prev === 'idle' && presence === 'processing') {
-      actionLog.addEntry({
-        source: 'stream',
-        label: 'Processing',
-        detail: 'Operator thinking...',
-        status: 'running',
-        icon: '▸',
-        expanded: '{\n  "event": "processing_start",\n  "agent": "openclaw/operator",\n  "description": "The operator received your message and is deciding which tools to use. It may query APIs, search records, or fetch external data."\n}',
-      });
+    for (const action of presenceLogActions(prev, presence)) {
+      if (action.type === 'mark_all_running_done') {
+        markAllRunningDone();
+      } else {
+        addEntry(action.entry);
+      }
     }
-
-    if (prev === 'processing' && presence === 'typing') {
-      // Don't mark processing as done — it stays until action events complete it
-      actionLog.addEntry({
-        source: 'stream',
-        label: 'Streaming response',
-        status: 'running',
-        icon: '💬',
-      });
-    }
-
-    if ((prev === 'typing' || prev === 'processing') && presence === 'idle') {
-      actionLog.markAllRunningDone();
-    }
-
-    if (presence === 'error') {
-      actionLog.markAllRunningDone();
-      actionLog.addEntry({ source: 'stream', label: 'Error', status: 'error', icon: '❌' });
-    }
-  }, [presence, actionLog]);
+  }, [presence, addEntry, markAllRunningDone]);
 
   // Parse completed assistant messages for record IDs
   // AND poll CloudWatch for real API Gateway access logs
@@ -157,7 +150,7 @@ export function useActionLogSync(
 
       const parsed = parseActionsFromText(msg.content);
       for (const action of parsed) {
-        actionLog.addEntry({
+        addEntry({
           source: 'record',
           label: action.label,
           detail: action.detail,
@@ -197,7 +190,7 @@ export function useActionLogSync(
             const latency = evt.integrationLatency || '?';
             const requestTime = evt.requestTime || '';
             const path = route.includes(' ') ? route.split(' ').slice(1).join(' ') : route;
-            actionLog.addEntry({
+            addEntry({
               source: 'api',
               label: `${method} ${path}`,
               detail: `${status} · ${latency}ms`,
@@ -215,5 +208,5 @@ export function useActionLogSync(
 
       break; // Only process the latest unprocessed assistant message
     }
-  }, [messages, presence, actionLog, getAuthToken]);
+  }, [messages, presence, addEntry, getAuthToken]);
 }
