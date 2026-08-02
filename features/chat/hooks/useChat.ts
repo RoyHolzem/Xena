@@ -11,7 +11,7 @@ import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from 're
 import type { AvatarState, ChatMessage, PresenceState, XenaActionEvent } from '@/lib/types';
 import type { XenaUiAction } from '@/lib/xena-ui-actions';
 import { makeId } from '../chat-utils';
-import { parseSseDataObject, type ToolCallInfo } from '../sse-parse';
+import { parseSseDataObject } from '../sse-parse';
 import {
   appendAssistantStream,
   createAssistantStreamBuffers,
