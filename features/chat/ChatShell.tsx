@@ -85,13 +85,13 @@ export function ChatShell() {
   const voice = useVoice({
     onUserTranscript: useCallback((text: string) => {
       chat.addVoiceUserMessage(text);
-    }, [chat]),
+    }, [chat.addVoiceUserMessage]),
     onResponseStart: useCallback(() => {
       chat.resetVoiceAssistant();
-    }, [chat]),
+    }, [chat.resetVoiceAssistant]),
     onAssistantDelta: useCallback((delta: string) => {
       chat.appendVoiceAssistantDelta(delta);
-    }, [chat]),
+    }, [chat.appendVoiceAssistantDelta]),
     onResponseDone: useCallback(() => {}, []),
     onError: useCallback((err: string) => {
       console.error('[voice]', err);

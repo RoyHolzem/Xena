@@ -39,6 +39,7 @@ export function ChatCenter({
   messages,
   draft,
   setDraft,
+  presence,
   error,
   messagesEndRef,
   textareaRef,
@@ -53,6 +54,8 @@ export function ChatCenter({
   pinnedCards,
   onNavigateToRecord,
 }: ChatCenterProps) {
+  const textStreamBusy = presence === 'processing' || presence === 'typing';
+  const voiceBlockedByText = textStreamBusy && !voiceActive;
   // Determine voice-specific avatar state
   const effectiveAvatarState = voiceActive
     ? voiceState === 'recording'
@@ -178,8 +181,10 @@ export function ChatCenter({
               (voiceState === 'transcribing' || voiceState === 'responding') && styles.chatVoiceBtnConnecting,
             )}
             onClick={onToggleVoice}
+            disabled={voiceBlockedByText}
             title={
-              !voiceActive ? 'Start voice chat'
+              voiceBlockedByText ? 'Wait for the current reply to finish'
+              : !voiceActive ? 'Start voice chat'
               : voiceState === 'recording' ? 'Stop recording'
               : 'Cancel'
             }

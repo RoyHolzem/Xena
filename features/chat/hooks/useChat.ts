@@ -12,6 +12,11 @@ import type { AvatarState, ChatMessage, PresenceState, XenaActionEvent } from '@
 import type { XenaUiAction } from '@/lib/xena-ui-actions';
 import { makeId } from '../chat-utils';
 import { parseSseDataObject, type ToolCallInfo } from '../sse-parse';
+import {
+  appendAssistantStream,
+  createAssistantStreamBuffers,
+  resetAssistantStream,
+} from './assistant-stream-buffers';
 
 const nowIso = () => new Date().toISOString();
 
@@ -50,7 +55,9 @@ export function useChat(selectedModel: string = 'inceptionlabs/mercury-2', optio
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
-  const assistantBufferRef = useRef('');
+  // Text and voice must not share a buffer — overlapping streams previously
+  // mixed deltas into one string and rewrote both assistant messages.
+  const assistantBuffersRef = useRef(createAssistantStreamBuffers());
   const voiceAssistantMsgIdRef = useRef<string | null>(null);
 
   useEffect(() => {
@@ -100,7 +107,7 @@ export function useChat(selectedModel: string = 'inceptionlabs/mercury-2', optio
     if (voiceAssistantMsgIdRef.current) return;
     const id = makeId();
     voiceAssistantMsgIdRef.current = id;
-    assistantBufferRef.current = '';
+    resetAssistantStream(assistantBuffersRef.current, 'voice');
     setMessages((current) => [
       ...current,
       { id, role: 'assistant', content: '', createdAt: nowIso(), source: 'voice' },
@@ -109,8 +116,7 @@ export function useChat(selectedModel: string = 'inceptionlabs/mercury-2', optio
 
   const appendVoiceAssistantDelta = useCallback((delta: string) => {
     ensureVoiceAssistantMessage();
-    assistantBufferRef.current += delta;
-    const text = assistantBufferRef.current;
+    const text = appendAssistantStream(assistantBuffersRef.current, 'voice', delta);
     const msgId = voiceAssistantMsgIdRef.current;
     if (!msgId) return;
     setMessages((current) =>
@@ -120,7 +126,7 @@ export function useChat(selectedModel: string = 'inceptionlabs/mercury-2', optio
 
   const resetVoiceAssistant = useCallback(() => {
     voiceAssistantMsgIdRef.current = null;
-    assistantBufferRef.current = '';
+    resetAssistantStream(assistantBuffersRef.current, 'voice');
   }, []);
 
   // ─── Text chat submit ───
@@ -135,7 +141,7 @@ export function useChat(selectedModel: string = 'inceptionlabs/mercury-2', optio
 
     const userMessage: ChatMessage = { id: makeId(), role: 'user', content, createdAt: nowIso() };
     const assistantMessageId = makeId();
-    assistantBufferRef.current = '';
+    resetAssistantStream(assistantBuffersRef.current, 'text');
     setError(null);
     setModelFallback(null); // Reset fallback state for new message
     setDraft('');
@@ -243,8 +249,11 @@ export function useChat(selectedModel: string = 'inceptionlabs/mercury-2', optio
             }
             if (sseLine.kind === 'delta') {
               setPresence('typing');
-              assistantBufferRef.current += sseLine.text;
-              const text = assistantBufferRef.current;
+              const text = appendAssistantStream(
+                assistantBuffersRef.current,
+                'text',
+                sseLine.text,
+              );
               setMessages((current) => current.map((message) => (
                 message.id === assistantMessageId ? { ...message, content: text } : message
               )));
