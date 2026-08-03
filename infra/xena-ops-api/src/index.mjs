@@ -1,5 +1,6 @@
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
 import { DynamoDBDocumentClient, ScanCommand, GetCommand, PutCommand, UpdateCommand } from '@aws-sdk/lib-dynamodb';
+import { invalidPriorityError, invalidSeverityError } from './severity-priority-validation.mjs';
 
 const ddb = DynamoDBDocumentClient.from(new DynamoDBClient({ region: process.env.AWS_REGION || 'eu-central-1' }));
 
@@ -192,6 +193,15 @@ async function createRecord(type, body) {
     return { statusCode: 400, body: JSON.stringify({ ok: false, error: `Invalid status '${body.status}'. Valid: ${VALID_STATUSES[type].join(', ')}` }) };
   }
 
+  const severityError = invalidSeverityError(body.severity);
+  if (severityError) {
+    return { statusCode: 400, body: JSON.stringify({ ok: false, error: severityError }) };
+  }
+  const priorityError = invalidPriorityError(body.priority);
+  if (priorityError) {
+    return { statusCode: 400, body: JSON.stringify({ ok: false, error: priorityError }) };
+  }
+
   const now = new Date().toISOString();
   const recordId = body.recordId || generateRecordId(type);
 
@@ -226,6 +236,15 @@ async function updateRecord(type, recordId, body) {
 
   if (body.status && VALID_STATUSES[type] && !VALID_STATUSES[type].includes(body.status)) {
     return { statusCode: 400, body: JSON.stringify({ ok: false, error: `Invalid status '${body.status}'. Valid: ${VALID_STATUSES[type].join(', ')}` }) };
+  }
+
+  const severityError = invalidSeverityError(body.severity);
+  if (severityError) {
+    return { statusCode: 400, body: JSON.stringify({ ok: false, error: severityError }) };
+  }
+  const priorityError = invalidPriorityError(body.priority);
+  if (priorityError) {
+    return { statusCode: 400, body: JSON.stringify({ ok: false, error: priorityError }) };
   }
 
   const allowed = EDITABLE_FIELDS[type] || [];

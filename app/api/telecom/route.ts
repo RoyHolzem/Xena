@@ -2,6 +2,7 @@ import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
 import { DynamoDBDocumentClient, GetCommand, ScanCommand, PutCommand, UpdateCommand } from '@aws-sdk/lib-dynamodb';
 import { NextRequest, NextResponse } from 'next/server';
 import { verifyToken } from '@/lib/cognito-jwt';
+import { invalidPriorityError, invalidSeverityError } from '@/lib/telecom-severity-priority';
 import type { LabeledValue, TelecomApiResponse, TelecomRecord, TelecomView } from '@/lib/types';
 
 const region =
@@ -500,6 +501,15 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ ok: false, error: `Invalid status '${body.status}'. Valid: ${validStatuses.join(', ')}` }, { status: 400 });
   }
 
+  const severityError = invalidSeverityError(body.severity);
+  if (severityError) {
+    return NextResponse.json({ ok: false, error: severityError }, { status: 400 });
+  }
+  const priorityError = invalidPriorityError(body.priority);
+  if (priorityError) {
+    return NextResponse.json({ ok: false, error: priorityError }, { status: 400 });
+  }
+
   const now = new Date().toISOString();
   const recordId = (body.recordId as string) || generateRecordId(view);
 
@@ -547,6 +557,15 @@ export async function PUT(request: NextRequest) {
   const validStatuses = VALID_STATUSES[view];
   if (body.status && !validStatuses.includes(body.status as string)) {
     return NextResponse.json({ ok: false, error: `Invalid status '${body.status}'. Valid: ${validStatuses.join(', ')}` }, { status: 400 });
+  }
+
+  const severityError = invalidSeverityError(body.severity);
+  if (severityError) {
+    return NextResponse.json({ ok: false, error: severityError }, { status: 400 });
+  }
+  const priorityError = invalidPriorityError(body.priority);
+  if (priorityError) {
+    return NextResponse.json({ ok: false, error: priorityError }, { status: 400 });
   }
 
   // Verify record exists
