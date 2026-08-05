@@ -4,6 +4,12 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import type { XenaUiAction } from '@/lib/xena-ui-actions';
 import { useAuthToken } from '../../auth/AuthWrapper';
 import { parseSseDataObject } from '../sse-parse';
+import {
+  beginVoiceTurn,
+  createVoiceTurnGate,
+  invalidateVoiceTurn,
+  isVoiceTurnActive,
+} from './voice-turn';
 
 export type VoiceState = 'disconnected' | 'recording' | 'transcribing' | 'responding' | 'playing' | 'error';
 
@@ -27,8 +33,22 @@ export function useVoice(opts: UseVoiceOptions = {}) {
   const isRecordingRef = useRef(false);
   const stateRef = useRef(state);
   const audioElRef = useRef<HTMLAudioElement | null>(null);
+  const turnGateRef = useRef(createVoiceTurnGate());
+  const abortRef = useRef<AbortController | null>(null);
+  const optsRef = useRef(opts);
+  optsRef.current = opts;
 
   stateRef.current = state;
+
+  const abortActiveTurn = useCallback(() => {
+    invalidateVoiceTurn(turnGateRef.current);
+    abortRef.current?.abort();
+    abortRef.current = null;
+    if (audioElRef.current) {
+      audioElRef.current.pause();
+      audioElRef.current = null;
+    }
+  }, []);
 
   // Start recording from microphone
   const startRecording = useCallback(async () => {

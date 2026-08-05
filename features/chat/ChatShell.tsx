@@ -71,7 +71,7 @@ export function ChatShell() {
     (event: XenaActionEvent) => {
       actionLog.addEntry(actionEventToEntry(event));
     },
-    [actionLog],
+    [actionLog.addEntry],
   );
 
   const chat = useChat(selectedModel, {
