@@ -1,5 +1,6 @@
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
 import { DynamoDBDocumentClient, ScanCommand, GetCommand, PutCommand, UpdateCommand } from '@aws-sdk/lib-dynamodb';
+import { normalizeRecord } from './normalize-record.mjs';
 
 const ddb = DynamoDBDocumentClient.from(new DynamoDBClient({ region: process.env.AWS_REGION || 'eu-central-1' }));
 
@@ -81,25 +82,8 @@ const EDITABLE_FIELDS = {
 // Fields required for creation
 const REQUIRED_CREATE_FIELDS = ['title', 'status', 'severity'];
 
-function toIso(v) { return (typeof v === 'string' && v) ? v : new Date(0).toISOString(); }
-
 function normalize(item) {
-  return {
-    recordId: item.recordId ?? '',
-    title: item.title ?? '',
-    summary: item.summary ?? '',
-    status: item.status ?? '',
-    severity: item.severity ?? '',
-    priority: item.priority ?? '',
-    operatorName: item.operatorName ?? '',
-    serviceType: item.serviceType ?? '',
-    networkSegment: item.networkSegment ?? '',
-    city: item.city ?? '',
-    startTime: toIso(item.startTime),
-    endTime: item.endTime || undefined,
-    createdAt: toIso(item.createdAt),
-    updatedAt: toIso(item.updatedAt),
-  };
+  return normalizeRecord(item);
 }
 
 function sorter(type) {
