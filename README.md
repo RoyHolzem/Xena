@@ -442,6 +442,37 @@ A custom OpenClaw gateway plugin (`web-request`) provides `web_post` and `web_pu
 }
 ```
 
+## Related Repository
+
+- **[RoyClaw](https://github.com/RoyHolzem/RoyClaw)** — Agent config management, workspace versioning, and VPS deployment pipeline for the OpenClaw gateway agents.
+
+## Redeploying on a New AWS Account
+
+The `infra/amplify-app.template.yaml` is fully self-contained. A single `create-stack` provisions:
+
+- Secrets Manager (gateway token + OpenAI key)
+- SES email identity
+- Cognito User Pool + hosted UI
+- DynamoDB tables (4 telecom tables)
+- IAM execution role for Amplify SSR (Secrets Manager + DynamoDB + CloudWatch)
+- Amplify Hosting with 3 branches (main, staging, experimental)
+
+```bash
+aws cloudformation create-stack \
+  --stack-name xena \
+  --template-body file://infra/amplify-app.template.yaml \
+  --parameters \
+    ParameterKey=GitHubAccessToken,ParameterValue=ghp_xxx \
+    ParameterKey=CognitoDomainPrefix,ParameterValue=xena-new \
+    ParameterKey=SenderEmail,ParameterValue=you@example.com \
+    ParameterKey=GatewayUrl,ParameterValue=https://api.NEWDOMAIN.com \
+    ParameterKey=OpenAIKey,ParameterValue=sk-xxx \
+  --capabilities CAPABILITY_AUTO_EXPAND CAPABILITY_NAMED_IAM \
+  --region eu-central-1
+```
+
+Then update the stack with the Amplify domain for Cognito callbacks, verify the SES email, and deploy the Ops API stack (`infra/xena-ops-api/template.yaml`).
+
 ## License
 
 MIT

@@ -93,7 +93,7 @@ function createXenaUiInjector(): TransformStream<Uint8Array, Uint8Array> {
 
 const GATEWAY_URL = process.env.NEXT_PUBLIC_GATEWAY_URL || '';
 const CHAT_PATH = process.env.NEXT_PUBLIC_GATEWAY_CHAT_PATH || '/v1/chat/completions';
-const SECRET_NAME = 'xena/gateway-token';
+const SECRET_NAME = process.env.GATEWAY_TOKEN_SECRET_NAME || 'xena/gateway-token';
 const REGION = 'eu-central-1';
 
 const secretsClient = new SecretsManagerClient({ region: REGION });

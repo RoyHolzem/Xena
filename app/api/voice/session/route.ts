@@ -4,7 +4,7 @@ import {
   GetSecretValueCommand,
 } from '@aws-sdk/client-secrets-manager';
 
-const SECRET_NAME = 'xena/openai-key';
+const SECRET_NAME = process.env.OPENAI_SECRET_NAME || 'xena/openai-key';
 const REGION = 'eu-central-1';
 const secretsClient = new SecretsManagerClient({ region: REGION });
 

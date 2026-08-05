@@ -1,12 +1,12 @@
 AWSTemplateFormatVersion: '2010-09-09'
 Description: >
   Xena - AI Assistant Interface.
-  Provisions Secrets Manager + Cognito User Pool + SES Email + Amplify Hosting.
+  Provisions Secrets Manager + Cognito User Pool + SES Email + Amplify Hosting +
+  DynamoDB tables + IAM execution role + Voice credentials.
   Fully redeployable on any AWS account.
-  Gateway token is stored in Secrets Manager and read at runtime.
-  The VPS (RoyClaw) pushes the token to Secrets Manager automatically.
 
 Parameters:
+
   # == Repository ==
   RepositoryUrl:
     Type: String
@@ -30,9 +30,6 @@ Parameters:
     Type: String
     Description: >
       Verified SES sender email address for Cognito verification emails.
-      Must be verified in SES before deploying (or verify after deploy
-      via the email AWS sends). In SES sandbox mode, this email must
-      be verified before Cognito can send through it.
     AllowedPattern: '^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
 
   # == Google OAuth (optional) ==
@@ -53,8 +50,7 @@ Parameters:
     Default: ''
     Description: >
       Amplify app domain (e.g. d1abc234.amplifyapp.com).
-      Leave empty on first deploy, then update the stack with
-      the AmplifyAppId output to populate callback URLs.
+      Leave empty on first deploy, then update.
 
   # == Gateway ==
   GatewayUrl:
@@ -68,8 +64,14 @@ Parameters:
     NoEcho: true
     Default: ''
     Description: >
-      Initial gateway auth token. Stored in Secrets Manager.
-      After deploy, update via Secrets Manager or have RoyClaw push it.
+      Initial gateway auth token. Leave empty to set later via Secrets Manager.
+
+  # == OpenAI (Voice) ==
+  OpenAIKey:
+    Type: String
+    NoEcho: true
+    Default: ''
+    Description: OpenAI API key for Whisper STT and TTS (stored in Secrets Manager)
 
   # == CloudTrail (optional) ==
   CloudTrailAccessKeyId:
@@ -101,11 +103,13 @@ Conditions:
     - !Not [!Equals [!Ref CloudTrailAccessKeyId, '']]
     - !Not [!Equals [!Ref CloudTrailSecretAccessKey, '']]
   HasInitialToken: !Not [!Equals [!Ref InitialGatewayToken, '']]
+  HasOpenAIKey: !Not [!Equals [!Ref OpenAIKey, '']]
 
 Resources:
-  # ===========================================
+
+  # ============================================
   #  SECRETS MANAGER - Gateway Token
-  # ===========================================
+  # ============================================
 
   GatewayTokenSecret:
     Type: AWS::SecretsManager::Secret
@@ -115,9 +119,24 @@ Resources:
       SecretString: !If
         - HasInitialToken
         - !Sub '{"token":"${InitialGatewayToken}"}'
-        - '{"token":"placeholder"}'
+        - '{"token":"***"}'
 
-  # IAM user for the VPS (RoyClaw) to push token updates
+  # ============================================
+  #  SECRETS MANAGER - OpenAI Key (Voice STT/TTS)
+  # ============================================
+  OpenAISecret:
+    Type: AWS::SecretsManager::Secret
+    Properties:
+      Name: !Sub '${AWS::StackName}/openai-key'
+      Description: !Sub 'OpenAI API key for ${AppDisplayName} voice features'
+      SecretString: !If
+        - HasOpenAIKey
+        - !Sub '{"apiKey":"${OpenAIKey}"}'
+        - '{"apiKey":"***"}'
+
+  # ============================================
+  #  IAM - VPS Token Writer user
+  # ============================================
   VpsTokenWriter:
     Type: AWS::IAM::User
     Properties:
@@ -139,19 +158,71 @@ Resources:
       UserName: !Ref VpsTokenWriter
       Status: Active
 
-  # ===========================================
-  #  SES EMAIL IDENTITY
-  # ===========================================
+  # ============================================
+  #  IAM - Amplify SSR Execution Role
+  #  (Used by the Amplify-hosted Next.js Lambda
+  #   to call DynamoDB, Secrets Manager, CloudWatch)
+  # ============================================
+  AmplifyExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub '${AWS::StackName}-amplify-execution'
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: amplify.amazonaws.com
+            Action: 'sts:AssumeRole'
+      Policies:
+        - PolicyName: AmplifySSRPermissions
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              # Secrets Manager — read gateway token + OpenAI key
+              - Effect: Allow
+                Action:
+                  - 'secretsmanager:GetSecretValue'
+                  - 'secretsmanager:DescribeSecret'
+                Resource:
+                  - !Ref GatewayTokenSecret
+                  - !Ref OpenAISecret
 
+              # DynamoDB — full CRUD on telecom tables
+              - Effect: Allow
+                Action:
+                  - 'dynamodb:Scan'
+                  - 'dynamodb:Query'
+                  - 'dynamodb:GetItem'
+                  - 'dynamodb:PutItem'
+                  - 'dynamodb:UpdateItem'
+                  - 'dynamodb:DeleteItem'
+                Resource:
+                  - !Sub 'arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/roy-telecom-incidents-lux'
+                  - !Sub 'arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/roy-telecom-events-lux'
+                  - !Sub 'arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/roy-telecom-planned-works-lux'
+                  - !Sub 'arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/roy-telecom-orders-lux'
+
+              # CloudWatch Logs — read ops API access logs
+              - Effect: Allow
+                Action:
+                  - 'logs:FilterLogEvents'
+                  - 'logs:DescribeLogGroups'
+                Resource:
+                  - !Sub 'arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/apigateway/xena-ops-api:*'
+                  - !Sub 'arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/apigateway/xena-ops-api'
+
+  # ============================================
+  #  SES EMAIL IDENTITY
+  # ============================================
   SenderEmailIdentity:
     Type: AWS::SES::EmailIdentity
     Properties:
       EmailIdentity: !Ref SenderEmail
 
-  # ===========================================
+  # ============================================
   #  COGNITO
-  # ===========================================
-
+  # ============================================
   CognitoSesSendingRole:
     Type: AWS::IAM::Role
     Properties:
@@ -283,17 +354,76 @@ Resources:
         IdToken: hours
         RefreshToken: days
 
-  # ===========================================
-  #  AMPLIFY
-  # ===========================================
+  # ============================================
+  #  DYNAMODB - Telecom Tables
+  # ============================================
+  TelecomIncidentsTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: roy-telecom-incidents-lux
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: recordId
+          AttributeType: S
+      KeySchema:
+        - AttributeName: recordId
+          KeyType: HASH
 
+  TelecomEventsTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: roy-telecom-events-lux
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: recordId
+          AttributeType: S
+      KeySchema:
+        - AttributeName: recordId
+          KeyType: HASH
+
+  TelecomPlannedWorksTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: roy-telecom-planned-works-lux
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: recordId
+          AttributeType: S
+      KeySchema:
+        - AttributeName: recordId
+          KeyType: HASH
+
+  TelecomOrdersTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: roy-telecom-orders-lux
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: recordId
+          AttributeType: S
+      KeySchema:
+        - AttributeName: recordId
+          KeyType: HASH
+
+  # ============================================
+  #  AMPLIFY
+  # ============================================
   AmplifyApp:
     Type: AWS::Amplify::App
+    DependsOn:
+      - AmplifyExecutionRole
+      - GatewayTokenSecret
+      - OpenAISecret
+      - TelecomIncidentsTable
+      - TelecomEventsTable
+      - TelecomPlannedWorksTable
+      - TelecomOrdersTable
     Properties:
       Name: !Ref AppDisplayName
       Repository: !Ref RepositoryUrl
       AccessToken: !Ref GitHubAccessToken
       Platform: WEB_COMPUTE
+      IAMServiceRole: !GetAtt AmplifyExecutionRole.Arn
       BuildSpec: |
         version: 1
         frontend:
@@ -328,9 +458,22 @@ Resources:
           Value: !Ref GatewayUrl
         - Name: NEXT_PUBLIC_GATEWAY_CHAT_PATH
           Value: !Ref GatewayChatPath
+        # == Server-side ==
         - Name: GATEWAY_TOKEN_SECRET_NAME
           Value: !Sub '${AWS::StackName}/gateway-token'
-        # == Server-side CloudTrail ==
+        - Name: OPENAI_SECRET_NAME
+          Value: !Sub '${AWS::StackName}/openai-key'
+        - Name: TELECOM_INCIDENTS_TABLE_NAME
+          Value: roy-telecom-incidents-lux
+        - Name: TELECOM_EVENTS_TABLE_NAME
+          Value: roy-telecom-events-lux
+        - Name: TELECOM_PLANNED_WORKS_TABLE_NAME
+          Value: roy-telecom-planned-works-lux
+        - Name: TELECOM_ORDERS_TABLE_NAME
+          Value: roy-telecom-orders-lux
+        - Name: TELECOM_AWS_REGION
+          Value: !Ref 'AWS::Region'
+        # CloudTrail (optional)
         - Name: CT_AWS_ACCESS_KEY_ID
           Value: !Ref CloudTrailAccessKeyId
         - Name: CT_AWS_SECRET_ACCESS_KEY
@@ -381,6 +524,15 @@ Outputs:
   GatewayTokenSecretArn:
     Description: Secrets Manager secret ARN
     Value: !Ref GatewayTokenSecret
+  OpenAISecretName:
+    Description: Secrets Manager secret name for the OpenAI key
+    Value: !Sub '${AWS::StackName}/openai-key'
+  OpenAISecretArn:
+    Description: Secrets Manager secret ARN for the OpenAI key
+    Value: !Ref OpenAISecret
+  AmplifyExecutionRoleArn:
+    Description: IAM role for Amplify SSR Lambda
+    Value: !GetAtt AmplifyExecutionRole.Arn
   VpsTokenWriterAccessKeyId:
     Description: IAM access key ID for the VPS to push token updates
     Value: !Ref VpsTokenWriterAccessKey

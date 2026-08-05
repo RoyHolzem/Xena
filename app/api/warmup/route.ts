@@ -4,7 +4,7 @@ import {
   GetSecretValueCommand,
 } from '@aws-sdk/client-secrets-manager';
 
-const SECRET_NAME = 'xena/gateway-token';
+const SECRET_NAME = process.env.GATEWAY_TOKEN_SECRET_NAME || 'xena/gateway-token';
 const REGION = 'eu-central-1';
 const secretsClient = new SecretsManagerClient({ region: REGION });
 
