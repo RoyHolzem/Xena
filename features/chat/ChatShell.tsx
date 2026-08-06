@@ -6,7 +6,7 @@ import type { XenaActionEvent, TelecomView } from '@/lib/types';
 import { cn } from './chat-utils';
 import { publicConfig } from './chat-config';
 import { useAuthToken } from '../auth/AuthWrapper';
-import { useChat } from './hooks/useChat';
+import { useChat, type ToolCallEvent } from './hooks/useChat';
 import { useVoice } from './hooks/useVoice';
 import { useBootSequence } from './hooks/useBootSequence';
 import { useTelecom } from './hooks/useTelecom';
@@ -15,13 +15,13 @@ import { useChatContext } from './hooks/useChatContext';
 import { useGitHub } from './hooks/useGitHub';
 import { useModels } from './hooks/useModels';
 import { useActionLog, useActionLogSync, actionEventToEntry } from './hooks/useActionLog';
+import { entityKindToTelecomView } from '@/lib/xena-ui-actions';
 import { TopNav, type AppMode } from './components/TopNav';
 import { ChatCenter } from './components/ChatCenter';
-import { AgentActionsPanel } from './components/AgentActionsPanel';
 import { RightPanel } from './components/RightPanel';
 import { ModuleDashboard } from './components/ModuleDashboard';
 import { BootScreen } from './components/BootScreen';
-import { AgentActivityBar } from './components/AgentActivityBar';
+import { AgentRunStrip } from './components/AgentRunStrip';
 
 import styles from './styles/shell.module.css';
 
@@ -77,6 +77,24 @@ export function ChatShell() {
   const chat = useChat(selectedModel, {
     onXenaAction,
     onUiActions,
+    onToolCall: useCallback((call: ToolCallEvent) => {
+      actionLog.addEntry({
+        source: 'tool',
+        label: `Calling ${call.name}`,
+        detail: call.arguments ? call.arguments.slice(0, 180) : 'Approved agent skill',
+        status: 'running',
+        icon: 'tool',
+      });
+    }, [actionLog]),
+    onToolResult: useCallback((result: { id: string; name: string; content: string }) => {
+      actionLog.addEntry({
+        source: 'tool',
+        label: `${result.name} completed`,
+        detail: result.content ? result.content.slice(0, 180) : 'Tool result received',
+        status: 'done',
+        icon: 'done',
+      });
+    }, [actionLog]),
     onResponseDone: useCallback(() => {
       void telecom.loadTelecomView(contextView, true);
     }, [contextView, telecom]),
@@ -127,14 +145,22 @@ export function ChatShell() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [matchedRecord, matchedView]);
 
-  // Navigate to a record: switch mode & view, select the record
+  // Focus a record in the artifact workbench without ejecting the operator from chat.
   const handleNavigateToRecord = useCallback((view: TelecomView, recordId: string) => {
-    setMode(view as AppMode);
     setContextView(view);
     telecom.selectRecord(view, recordId);
   }, [telecom]);
 
-  const displayRecord = matchedRecord || telecom.selectedRecord;
+  const handleSearchResult = useCallback((recordId: string) => {
+    const entity = cockpit.searchResults?.entity;
+    if (!entity) return;
+    const view = entityKindToTelecomView(entity);
+    if (!view) return;
+    void telecom.focusRecord(view, recordId).then(() => cockpit.setSearchResults(null));
+  }, [cockpit.searchResults, cockpit.setSearchResults, telecom]);
+
+  const displayRecord = telecom.selectedRecord || matchedRecord;
+  const displayView = telecom.selectedRecord ? contextView : (matchedView || contextView);
 
   const isXenaMode = mode === 'xena';
   const isReady = boot.bootState === 'ready';
@@ -172,10 +198,8 @@ export function ChatShell() {
       <div className={cn(styles.body, !isXenaMode && styles.bodyFullWidth)}>
         {isXenaMode ? (
           <>
-            <AgentActionsPanel actions={actionLog.actions} />
-
             <div className={styles.chatColumn}>
-              <AgentActivityBar activity={cockpit.agentActivity} />
+              <AgentRunStrip activity={cockpit.agentActivity} actions={actionLog.actions} presence={chat.presence} />
               <ChatCenter
                 assistantName={assistantName}
                 assistantInitial={assistantInitial}
@@ -187,6 +211,8 @@ export function ChatShell() {
                 presence={chat.presence}
                 error={chat.error}
                 messagesEndRef={chat.messagesEndRef}
+                messagesScrollRef={chat.messagesScrollRef}
+                onMessagesScroll={chat.handleMessagesScroll}
                 textareaRef={chat.textareaRef}
                 handleSubmit={(e) => chat.handleSubmit(e, getAuthToken)}
                 handleKeyDown={chat.handleKeyDown}
@@ -204,7 +230,13 @@ export function ChatShell() {
             <RightPanel
               visible
               selectedRecord={displayRecord}
-              activeView={matchedView || contextView}
+              activeView={displayView}
+              loading={telecom.telecomLoading[displayView]}
+              error={telecom.telecomError[displayView]}
+              loadedAt={telecom.telecomLoadedAt[displayView]}
+              searchResults={cockpit.searchResults}
+              onSelectSearchResult={handleSearchResult}
+              onOpenModule={(view) => setMode(view as AppMode)}
             />
           </>
         ) : (

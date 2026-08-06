@@ -61,10 +61,10 @@ const SEVERITY_OPTIONS = ['SEV1', 'SEV2', 'SEV3', 'SEV4'];
 const PRIORITY_OPTIONS = ['P1', 'P2', 'P3', 'P4', 'P5'];
 
 const VIEW_ICON: Record<TelecomView, string> = {
-  incidents: '⚡',
-  events: '📡',
-  'planned-works': '🔧',
-  orders: '📦',
+  incidents: 'INC',
+  events: 'EVT',
+  'planned-works': 'MNT',
+  orders: 'ORD',
 };
 
 type StatusFilter = 'all' | 'active' | 'closed' | string;

@@ -49,13 +49,28 @@ export function useChat(selectedModel: string = 'inceptionlabs/mercury-2', optio
   } | null>(null);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const messagesScrollRef = useRef<HTMLDivElement>(null);
+  const followOutputRef = useRef(true);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const assistantBufferRef = useRef('');
   const voiceAssistantMsgIdRef = useRef<string | null>(null);
 
+  const handleMessagesScroll = useCallback((event: React.UIEvent<HTMLDivElement>) => {
+    const scrollArea = event.currentTarget;
+    const updateFollowState = () => {
+      const distanceFromBottom = scrollArea.scrollHeight - scrollArea.scrollTop - scrollArea.clientHeight;
+      followOutputRef.current = distanceFromBottom < 120;
+    };
+    updateFollowState();
+  }, []);
+
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages]);
+    if (!followOutputRef.current) return;
+    messagesEndRef.current?.scrollIntoView({
+      behavior: presence === 'typing' ? 'auto' : 'smooth',
+      block: 'end',
+    });
+  }, [messages, presence]);
 
   useEffect(() => {
     const el = textareaRef.current;
@@ -193,6 +208,14 @@ export function useChat(selectedModel: string = 'inceptionlabs/mercury-2', optio
       const reader = response.body.getReader();
       const decoder = new TextDecoder();
       let buffer = '';
+      let renderTimer: ReturnType<typeof setTimeout> | null = null;
+      const renderAssistantBuffer = () => {
+        renderTimer = null;
+        const text = assistantBufferRef.current;
+        setMessages((current) => current.map((message) => (
+          message.id === assistantMessageId ? { ...message, content: text } : message
+        )));
+      };
 
       while (true) {
         const { done, value } = await reader.read();
@@ -244,16 +267,16 @@ export function useChat(selectedModel: string = 'inceptionlabs/mercury-2', optio
             if (sseLine.kind === 'delta') {
               setPresence('typing');
               assistantBufferRef.current += sseLine.text;
-              const text = assistantBufferRef.current;
-              setMessages((current) => current.map((message) => (
-                message.id === assistantMessageId ? { ...message, content: text } : message
-              )));
+              if (!renderTimer) renderTimer = setTimeout(renderAssistantBuffer, 32);
             }
           } catch {
             // ignore non-json chunks
           }
         }
       }
+
+      if (renderTimer) clearTimeout(renderTimer);
+      renderAssistantBuffer();
 
       setPresence('idle');
       onResponseDone?.();
@@ -289,6 +312,8 @@ export function useChat(selectedModel: string = 'inceptionlabs/mercury-2', optio
     avatarState,
     statusLabel,
     messagesEndRef,
+    messagesScrollRef,
+    handleMessagesScroll,
     textareaRef,
     handleSubmit,
     handleKeyDown,

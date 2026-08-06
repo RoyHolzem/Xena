@@ -3,11 +3,7 @@
 import { useState } from 'react';
 import type { TelecomRecord, TelecomView } from '@/lib/types';
 import { cn } from '../chat-utils';
-import {
-  formatDateTime,
-  severityTone,
-  statusTone,
-} from '@/features/operations/ops-helpers';
+import { formatDateTime, severityTone, statusTone } from '@/features/operations/ops-helpers';
 import styles from '../styles/context-card.module.css';
 
 interface ContextCardProps {
@@ -17,109 +13,78 @@ interface ContextCardProps {
   onNavigate?: () => void;
 }
 
-export function ContextCard({ record, view, compact, onNavigate }: ContextCardProps) {
+const ENTITY_LABEL: Record<TelecomView, string> = {
+  incidents: 'Incident',
+  events: 'Event',
+  'planned-works': 'Maintenance',
+  orders: 'Order',
+};
+
+export function ContextCard({ record, view, compact = false, onNavigate }: ContextCardProps) {
   const [expanded, setExpanded] = useState(false);
-  const isExpanded = !compact || expanded;
+  const showDetails = !compact || expanded;
   const sevTone = severityTone(record.severity);
-
-  const entityLabel =
-    view === 'incidents' ? 'Incident'
-    : view === 'events' ? 'Event'
-    : view === 'orders' ? 'Order'
-    : 'Maintenance';
-
-  const typeLabel = record.typeCode || entityLabel;
+  const visibleHighlights = record.highlights.slice(0, compact ? 4 : 6);
 
   return (
-    <div
-      key={record.recordId}
-      className={cn(
-        styles.contextCard,
-        styles[`tintBg_${sevTone}`],
-        compact && !expanded && styles.contextCardCompact,
-        onNavigate && styles.contextCardClickable,
-      )}
-      onClick={onNavigate}
-      role={onNavigate ? 'button' : undefined}
-      tabIndex={onNavigate ? 0 : undefined}
-    >
-      <div className={styles.contextCardHeader}>
-        <div className={styles.contextCardType}>{typeLabel}</div>
-        <div className={styles.contextCardId}>{record.recordId}</div>
-        <div className={styles.contextCardBadges}>
-          <span className={cn(styles.sevBadge, styles[`tone_${sevTone}`])}>
-            {record.severity}
-          </span>
+    <article className={cn(styles.artifactCard, styles[`artifactTone_${sevTone}`])}>
+      <div className={styles.artifactRail} aria-hidden="true" />
+      <header className={styles.artifactHeader}>
+        <div className={styles.artifactIdentity}>
+          <span className={styles.artifactEyebrow}>Live {ENTITY_LABEL[view]} artifact</span>
+          <span className={styles.artifactId}>{record.recordId}</span>
+        </div>
+        <div className={styles.artifactBadges}>
+          <span className={cn(styles.sevBadge, styles[`tone_${sevTone}`])}>{record.severity}</span>
           <span className={cn(styles.statusBadgeChip, styles[`stat_${statusTone(record.status)}`])}>
             {record.status.replaceAll('_', ' ')}
           </span>
         </div>
-      </div>
+      </header>
 
-      <div className={styles.contextCardTitle}>{record.title}</div>
+      <h3 className={styles.artifactTitle}>{record.title}</h3>
+      {showDetails && record.summary && <p className={styles.artifactSummary}>{record.summary}</p>}
 
-      {isExpanded && record.summary && (
-        <div className={styles.contextCardSummary}>{record.summary}</div>
-      )}
+      <div className={styles.artifactPulseLine} aria-hidden="true"><span /></div>
 
-      <div className={styles.contextCardMeta}>
-        <div className={styles.contextCardMetaRow}>
-          <span>Start</span>
+      <div className={styles.artifactFacts}>
+        <div>
+          <span>Started</span>
           <strong>{formatDateTime(record.startTime)}</strong>
         </div>
-        {record.endTime && (
-          <div className={styles.contextCardMetaRow}>
-            <span>End</span>
-            <strong>{formatDateTime(record.endTime)}</strong>
-          </div>
-        )}
         {record.companyName && record.companyName !== '-' && (
-          <div className={styles.contextCardMetaRow}>
-            <span>Customer</span>
-            <strong>{record.companyName}</strong>
-          </div>
+          <div><span>Customer</span><strong>{record.companyName}</strong></div>
         )}
-        {record.city && record.city !== '-' && (
-          <div className={styles.contextCardMetaRow}>
-            <span>Location</span>
-            <strong>{record.city}</strong>
-          </div>
+        {showDetails && record.city && record.city !== '-' && (
+          <div><span>Location</span><strong>{record.city}</strong></div>
         )}
+        {showDetails && visibleHighlights.map((fact) => (
+          <div key={fact.label}><span>{fact.label}</span><strong>{fact.value}</strong></div>
+        ))}
       </div>
 
-      {isExpanded && record.highlights.length > 0 && (
-        <div className={styles.contextCardFacts}>
-          {record.highlights.slice(0, compact ? 3 : 5).map((h) => (
-            <div key={h.label} className={styles.contextCardFact}>
-              <span>{h.label}</span>
-              <strong>{h.value}</strong>
-            </div>
-          ))}
+      <footer className={styles.artifactFooter}>
+        <div className={styles.artifactProvenance}>
+          <span className={styles.liveDot} />
+          Company data
+          <span aria-hidden="true">·</span>
+          structured UI
         </div>
-      )}
-
-      {compact && (
-        <button
-          type="button"
-          className={styles.contextCardExpandBtn}
-          onClick={(e) => { e.stopPropagation(); setExpanded((v) => !v); }}
-          aria-expanded={expanded}
-        >
-          {expanded ? 'Less detail' : 'More detail'}
-          <svg
-            className={cn(styles.contextCardExpandIcon, expanded && styles.contextCardExpandIconOpen)}
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2.4"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          >
-            <polyline points="6 9 12 15 18 9" />
-          </svg>
-        </button>
-      )}
-    </div>
+        <div className={styles.artifactActions}>
+          {compact && (
+            <button type="button" onClick={() => setExpanded((value) => !value)} aria-expanded={expanded}>
+              {expanded ? 'Collapse' : 'Inspect'}
+            </button>
+          )}
+          {onNavigate && (
+            <button type="button" className={styles.focusButton} onClick={onNavigate}>
+              Focus
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 18 6-6-6-6" /></svg>
+            </button>
+          )}
+        </div>
+      </footer>
+    </article>
   );
 }
 

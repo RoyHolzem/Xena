@@ -1,0 +1,63 @@
+.runStrip {
+  min-height: 76px;
+  display: grid;
+  grid-template-columns: auto minmax(180px, .78fr) minmax(220px, 1.22fr) auto;
+  align-items: center;
+  gap: 16px;
+  padding: 12px 14px;
+  overflow: hidden;
+  position: relative;
+  border: 1px solid rgba(255,255,255,.075);
+  border-radius: 18px;
+  background: linear-gradient(120deg, rgba(15,21,31,.98), rgba(8,12,19,.96));
+  box-shadow: 0 18px 44px rgba(0,0,0,.24);
+}
+
+.runStrip::before {
+  content: '';
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 2px;
+  background: rgba(7,153,235,.45);
+}
+
+.runStripActive::before { background: linear-gradient(180deg, #45c4ff, var(--xena-blue)); }
+.runStripError::before { background: var(--xena-red); }
+
+.runSignal { width: 38px; height: 38px; display: grid; place-items: center; position: relative; }
+.runSignalCore { width: 9px; height: 9px; border-radius: 50%; background: #52d5ff; box-shadow: 0 0 18px rgba(7,153,235,.75); }
+.runSignalOrbit { position: absolute; inset: 5px; border: 1px solid rgba(82,213,255,.38); border-top-color: transparent; border-radius: 50%; animation: runOrbit 1.6s linear infinite; }
+
+.runSummary { min-width: 0; display: grid; gap: 3px; }
+.runEyebrow { color: #66cfff; font: 700 .62rem/1.2 var(--font-mono, 'JetBrains Mono'), monospace; letter-spacing: .1em; text-transform: uppercase; }
+.runTitle { color: #f5f8fc; font-size: .84rem; font-weight: 650; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+.runSteps { min-width: 0; display: flex; align-items: center; justify-content: flex-end; gap: 6px; overflow: hidden; }
+.runHint { color: #637187; font-size: .72rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.runStep { min-width: 0; max-width: 160px; display: inline-flex; align-items: center; gap: 7px; padding: 7px 9px; border: 1px solid rgba(255,255,255,.06); border-radius: 10px; background: rgba(255,255,255,.025); }
+.runStepState { width: 6px; height: 6px; flex: 0 0 auto; border-radius: 50%; background: #4e5b6e; }
+.runStep_running .runStepState { background: #ffbe3d; box-shadow: 0 0 10px rgba(255,190,61,.4); animation: stateBreath 1.25s ease-in-out infinite; }
+.runStep_done .runStepState { background: #30d99a; }
+.runStep_error .runStepState { background: #ff5265; }
+.runStepLabel { color: #9aa8bc; font-size: .68rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+.runTrust { display: flex; align-items: center; gap: 6px; color: #66758b; font: 650 .6rem/1 var(--font-mono, 'JetBrains Mono'), monospace; text-transform: uppercase; letter-spacing: .06em; white-space: nowrap; }
+.runTrust svg { width: 14px; height: 14px; fill: none; stroke: #30d99a; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
+
+@keyframes runOrbit { to { transform: rotate(360deg); } }
+@keyframes stateBreath { 50% { opacity: .4; transform: scale(.82); } }
+
+@media (max-width: 1180px) {
+  .runStrip { grid-template-columns: auto minmax(180px,1fr) minmax(180px,1fr); }
+  .runTrust { display: none; }
+}
+
+@media (max-width: 760px) {
+  .runStrip { min-height: 64px; grid-template-columns: auto minmax(0,1fr); gap: 10px; padding: 10px 12px; }
+  .runSignal { width: 32px; height: 32px; }
+  .runSteps { display: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .runSignalOrbit, .runStep_running .runStepState { animation: none; }
+}

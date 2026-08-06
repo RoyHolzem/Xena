@@ -18,13 +18,14 @@ export type ParsedSseLine =
   | { kind: 'skip' };
 
 function isTelecomView(value: unknown): value is TelecomView {
-  return value === 'incidents' || value === 'events' || value === 'planned-works';
+  return value === 'incidents' || value === 'events' || value === 'planned-works' || value === 'orders';
 }
 
 function telecomFocusToOpenAction(view: TelecomView, recordId: string): XenaUiAction {
   if (view === 'incidents') return { type: 'OPEN_INCIDENT', recordId };
   if (view === 'events') return { type: 'OPEN_EVENT', recordId };
-  return { type: 'OPEN_PLANNED_WORK', recordId };
+  if (view === 'planned-works') return { type: 'OPEN_PLANNED_WORK', recordId };
+  return { type: 'OPEN_ORDER', recordId };
 }
 
 /** Parse one gateway SSE JSON object (after `data: `). */

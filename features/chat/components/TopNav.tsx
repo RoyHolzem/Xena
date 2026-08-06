@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef, useEffect } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { TelecomView } from '@/lib/types';
 import type { ModelInfo } from '../hooks/useModels';
 import { XenaLogo } from '@/features/landing/XenaLogo';
@@ -9,18 +9,15 @@ import styles from '../styles/top-nav.module.css';
 
 export type AppMode = 'xena' | TelecomView;
 
-const NAV_ITEMS: Array<{ key: AppMode; label: string; icon: string }> = [
-  { key: 'xena', label: 'Xena', icon: '\u2726' },
-  { key: 'incidents', label: 'Incidents', icon: '\u26a0' },
-  { key: 'events', label: 'Events', icon: '\u26a1' },
-  { key: 'planned-works', label: 'Maintenance', icon: '\u2699' },
+const NAV_ITEMS: Array<{ key: AppMode; label: string }> = [
+  { key: 'xena', label: 'Operate' },
+  { key: 'incidents', label: 'Incidents' },
+  { key: 'events', label: 'Events' },
+  { key: 'planned-works', label: 'Maintenance' },
+  { key: 'orders', label: 'Orders' },
 ];
 
-export type ModelFallbackInfo = {
-  requested: string;
-  actual?: string;
-  fellBack: boolean;
-} | null;
+export type ModelFallbackInfo = { requested: string; actual?: string; fellBack: boolean } | null;
 
 interface TopNavProps {
   mode: AppMode;
@@ -35,131 +32,86 @@ interface TopNavProps {
   onToggleTheme: () => void;
 }
 
+function NavGlyph({ mode }: { mode: AppMode }) {
+  if (mode === 'xena') return <svg viewBox="0 0 24 24"><path d="M4 14h4l2-7 4 11 2-7h4" /></svg>;
+  if (mode === 'incidents') return <svg viewBox="0 0 24 24"><path d="M12 3 2.8 19h18.4L12 3Z"/><path d="M12 9v4M12 16.5v.1" /></svg>;
+  if (mode === 'events') return <svg viewBox="0 0 24 24"><path d="M4 12a8 8 0 0 1 16 0M7 12a5 5 0 0 1 10 0M10 12a2 2 0 0 1 4 0M12 14v7" /></svg>;
+  if (mode === 'planned-works') return <svg viewBox="0 0 24 24"><path d="m14 6 4-3 3 3-3 4M13 7 5 15l4 4 8-8M4 20h6" /></svg>;
+  return <svg viewBox="0 0 24 24"><path d="M4 7h16v13H4zM8 7V4h8v3M8 12h8" /></svg>;
+}
+
 export function TopNav({ mode, setMode, ghStatus, ghCommit, models, selectedModel, setSelectedModel, modelFallback, theme, onToggleTheme }: TopNavProps) {
-  const [dropdownOpen, setDropdownOpen] = useState(false);
-  const dropdownRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    function handleClick(e: MouseEvent) {
-      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
-        setDropdownOpen(false);
-      }
-    }
-    document.addEventListener('mousedown', handleClick);
-    return () => document.removeEventListener('mousedown', handleClick);
-  }, []);
-
-  const currentModel = models.find((m) => m.id === selectedModel);
+  const [systemOpen, setSystemOpen] = useState(false);
+  const panelRef = useRef<HTMLDivElement>(null);
+  const currentModel = models.find((model) => model.id === selectedModel);
   const displayName = currentModel?.name || selectedModel.split('/').pop() || selectedModel;
 
-  // Format the actual model name for the fallback badge
-  const fallbackActualName = modelFallback?.actual
-    ? modelFallback.actual.split('/').pop() || modelFallback.actual
-    : 'default';
-
-  // Group models by provider
-  const grouped = models.reduce<Record<string, ModelInfo[]>>((acc, m) => {
-    const key = m.provider || 'other';
-    if (!acc[key]) acc[key] = [];
-    acc[key].push(m);
-    return acc;
-  }, {});
+  useEffect(() => {
+    const closePanel = (event: MouseEvent) => {
+      if (panelRef.current && !panelRef.current.contains(event.target as Node)) setSystemOpen(false);
+    };
+    document.addEventListener('mousedown', closePanel);
+    return () => document.removeEventListener('mousedown', closePanel);
+  }, []);
 
   return (
-    <nav className={styles.topNav}>
-      <div className={styles.topNavLeft}>
-        <div className={styles.topNavBrand}>
-          <XenaLogo size={34} withWordmark={false} className={styles.topNavLogoMark} />
-          <img src="/logo.png" alt="Xena" className={styles.topNavAppName} />
-        </div>
-
-        <div className={styles.topNavDivider} />
-
-        <div className={styles.topNavTabs}>
-          {NAV_ITEMS.map((item) => (
-            <button
-              key={item.key}
-              className={cn(styles.topNavTab, mode === item.key && styles.topNavTabActive)}
-              onClick={() => setMode(item.key)}
-              type="button"
-            >
-              <span className={styles.topNavTabIcon}>{item.icon}</span>
-              <span className={styles.topNavTabLabel}>{item.label}</span>
-              {mode === item.key && <div className={styles.topNavTabIndicator} />}
-            </button>
-          ))}
-        </div>
+    <nav className={styles.topNav} aria-label="Xena workspace navigation">
+      <div className={styles.brandZone}>
+        <div className={styles.brandMark}><XenaLogo size={31} withWordmark={false} /></div>
+        <span className={styles.brandWord}>XENA</span>
+        <span className={styles.environment}>Operations cockpit</span>
       </div>
 
-      <div className={styles.topNavRight}>
-        {/* Theme toggle */}
-        <button
-          className={styles.themeToggle}
-          onClick={onToggleTheme}
-          type="button"
-          title={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
-        >
-          {theme === 'dark' ? (
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <circle cx="12" cy="12" r="5"/>
-              <line x1="12" y1="1" x2="12" y2="3"/>
-              <line x1="12" y1="21" x2="12" y2="23"/>
-              <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/>
-              <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/>
-              <line x1="1" y1="12" x2="3" y2="12"/>
-              <line x1="21" y1="12" x2="23" y2="12"/>
-              <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/>
-              <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>
-            </svg>
-          ) : (
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
-            </svg>
-          )}
+      <div className={styles.navItems}>
+        {NAV_ITEMS.map((item) => (
+          <button
+            key={item.key}
+            type="button"
+            className={cn(styles.navItem, mode === item.key && styles.navItemActive)}
+            onClick={() => setMode(item.key)}
+            aria-current={mode === item.key ? 'page' : undefined}
+          >
+            <NavGlyph mode={item.key} />
+            <span>{item.label}</span>
+          </button>
+        ))}
+      </div>
+
+      <div className={styles.controlZone} ref={panelRef}>
+        <div className={styles.agentOnline}><span /> Agent online</div>
+        <button type="button" className={cn(styles.systemButton, systemOpen && styles.systemButtonActive)} onClick={() => setSystemOpen((value) => !value)} aria-expanded={systemOpen}>
+          <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1-2.8 2.8-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.6v.2h-4V21a1.7 1.7 0 0 0-1-1.6 1.7 1.7 0 0 0-1.9.3l-.1.1L4.2 17l.1-.1a1.7 1.7 0 0 0 .3-1.9A1.7 1.7 0 0 0 3 14H2.8v-4H3a1.7 1.7 0 0 0 1.6-1 1.7 1.7 0 0 0-.3-1.9L4.2 7 7 4.2l.1.1A1.7 1.7 0 0 0 9 4.6a1.7 1.7 0 0 0 1-1.6v-.2h4V3a1.7 1.7 0 0 0 1 1.6 1.7 1.7 0 0 0 1.9-.3l.1-.1L19.8 7l-.1.1a1.7 1.7 0 0 0-.3 1.9 1.7 1.7 0 0 0 1.6 1h.2v4H21a1.7 1.7 0 0 0-1.6 1Z" /></svg>
+          <span>System</span>
         </button>
 
-        {/* Model selector */}
-        <div className={styles.modelSelector} ref={dropdownRef}>
-          <button
-            className={styles.modelSelectorButton}
-            onClick={() => setDropdownOpen(!dropdownOpen)}
-            type="button"
-          >
-            <span className={styles.modelSelectorIcon}>?</span>
-            <span className={styles.modelSelectorLabel}>{displayName}</span>
-            {modelFallback?.fellBack && (
-              <span className={styles.modelFallbackBadge} title={`Fell back from ${modelFallback.requested} to ${fallbackActualName}`}>
-                ? {fallbackActualName}
-              </span>
-            )}
-            <span className={cn(styles.modelSelectorChevron, dropdownOpen && styles.modelSelectorChevronOpen)}>?</span>
-          </button>
-          {dropdownOpen && models.length > 0 && (
-            <div className={styles.modelDropdown}>
-              {Object.entries(grouped).map(([provider, providerModels]) => (
-                <div key={provider}>
-                  <div className={styles.modelGroupLabel}>{provider.toUpperCase()}</div>
-                  {providerModels.map((m) => (
-                    <button
-                      key={m.id}
-                      className={cn(styles.modelOption, selectedModel === m.id && styles.modelOptionActive)}
-                      onClick={() => { setSelectedModel(m.id); setDropdownOpen(false); }}
-                      type="button"
-                    >
-                      <span className={styles.modelOptionName}>{m.name}</span>
-                    </button>
-                  ))}
-                </div>
-              ))}
+        {systemOpen && (
+          <div className={styles.systemPanel}>
+            <div className={styles.systemPanelHeader}>
+              <div><span>Environment</span><strong>Production control plane</strong></div>
+              <span className={cn(styles.connectionBadge, styles[`connection_${ghStatus}`])}><i />{ghStatus}</span>
             </div>
-          )}
-        </div>
 
-        <div className={cn(styles.topNavLink, styles[`link_${ghStatus}`])}>
-          <span className={styles.topNavLinkDot} />
-          GitHub
-        </div>
-        <div className={styles.topNavLinkMono}>{ghCommit}</div>
+            <label className={styles.systemField}>
+              <span>Agent model</span>
+              <select value={selectedModel} onChange={(event) => setSelectedModel(event.target.value)}>
+                {models.length === 0 && <option value={selectedModel}>{displayName}</option>}
+                {models.map((model) => <option key={model.id} value={model.id}>{model.name}</option>)}
+              </select>
+              {modelFallback?.fellBack && <small>Fallback active: {modelFallback.actual || 'default model'}</small>}
+            </label>
+
+            <div className={styles.systemRows}>
+              <div><span>Repository</span><strong>RoyHolzem/Xena</strong></div>
+              <div><span>Commit</span><strong className={styles.mono}>{ghCommit || 'checking'}</strong></div>
+              <div><span>Runtime</span><strong>Serverless · eu-central-1</strong></div>
+            </div>
+
+            <button type="button" className={styles.themeButton} onClick={onToggleTheme}>
+              <span>{theme === 'dark' ? 'Dark cockpit' : 'Light cockpit'}</span>
+              <i className={cn(theme === 'light' && styles.themeToggleLight)}><b /></i>
+            </button>
+          </div>
+        )}
       </div>
     </nav>
   );

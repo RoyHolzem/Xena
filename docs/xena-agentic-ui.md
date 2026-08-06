@@ -2,7 +2,7 @@
 
 ## 1. Purpose
 
-Xena's **Xena mode** (three-column cockpit) is an **agentic operations interface**: the human drives intent through chat (and voice); the **Xena Operator** (behind OpenClaw) decides when to call tools and APIs; the **browser** updates navigation, search results, and the detail panel only from **structured `uiActions`**, never from parsing assistant prose.
+Xena's **Operate mode** is an **agentic operations workbench**: the human drives intent through chat or voice; the **Xena Operator** (behind OpenClaw) decides when to call approved tools and APIs; and the browser progressively renders run state, search results, and operational artifacts from structured stream events. Prose matching remains a clearly separated compatibility fallback.
 
 ## 2. Previous behavior
 
@@ -24,7 +24,8 @@ Xena's **Xena mode** (three-column cockpit) is an **agentic operations interface
   - **Inline ContextCard** renders below the latest assistant message (severity badge, status, timeline, key facts)
   - **Chat input placeholder** adapts to show the matched record title
 - **Agentic UI actions** (`xena_ui` SSE lines) still work as the primary driver when the operator has tools — they flow through `useCockpitState` → `applyUiActions` → `telecom.focusRecord`. Chat context matching acts as a **fallback** that provides dynamic UI even without operator tool access.
-- **Agent activity** bar appears when the operator emits `SET_AGENT_ACTIVITY` and clears on `CLEAR_AGENT_ACTIVITY` or `CLEAR_CONTEXT`.
+- **Agent run strip** combines stream presence, structured tool calls/results, and `SET_AGENT_ACTIVITY` into one current-turn surface. Delayed CloudWatch telemetry and prose-derived records are excluded from its verified event list.
+- **Search result artifacts** render in the artifact workbench and hydrate the selected record in place.
 - **Module dashboard** (top nav Incidents / Events / Maintenance) keeps **auto load + polling** for traditional browsing.
 
 ## 4. Agent response contract (logical vs transport)
@@ -55,15 +56,17 @@ If the gateway batches a single JSON object with both `answer` and `uiActions`, 
 | `OPEN_INCIDENT` | `recordId` | Set view to incidents, fetch `/api/telecom?view=incidents&recordId=…`, select record |
 | `OPEN_EVENT` | `recordId` | Same for events |
 | `OPEN_PLANNED_WORK` | `recordId` | Same for planned works |
+| `OPEN_ORDER` | `recordId` | Same for orders |
 | `SHOW_INCIDENT` | `recordId` | MVP: same as `OPEN_*` (detail on right) |
 | `SHOW_EVENT` | `recordId` | MVP: same |
 | `SHOW_PLANNED_WORK` | `recordId` | MVP: same |
-| `SHOW_SEARCH_RESULTS` | `entity`: `incident` \| `event` \| `planned-work`, `results[]` | Left list; each row has `recordId`, `title`, `status`, `severity`. If **exactly one** result, auto-open and clear list |
+| `SHOW_ORDER` | `recordId` | Same for orders |
+| `SHOW_SEARCH_RESULTS` | `entity`: `incident` \| `event` \| `planned-work` \| `order`, `results[]` | Artifact workbench result list; each row has `recordId`, `title`, `status`, `severity`. If **exactly one** result, auto-open and clear list |
 | `CLEAR_CONTEXT` | - | Clear telecom in-memory data, selection, search results, activity |
 | `SET_AGENT_ACTIVITY` | `phase`, `message` (or message derived from `phase` if only one is set) | Activity bar text |
 | `CLEAR_AGENT_ACTIVITY` | - | Hide activity bar |
 
-**Legacy:** `{ "type": "telecom_focus", "view": "incidents"|"events"|"planned-works", "recordId": "…" }` is still accepted and mapped to the corresponding `OPEN_*` action.
+**Legacy:** `{ "type": "telecom_focus", "view": "incidents"|"events"|"planned-works"|"orders", "recordId": "…" }` is still accepted and mapped to the corresponding `OPEN_*` action.
 
 Types live in [`lib/xena-ui-actions.ts`](../lib/xena-ui-actions.ts). Normalization and application: [`features/chat/ui-action-dispatcher.ts`](../features/chat/ui-action-dispatcher.ts).
 
