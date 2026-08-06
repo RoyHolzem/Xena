@@ -1,18 +1,32 @@
 # Xena UI Design System
 
-This document is the source-of-truth design contract for LLMs and contributors working on the Xena UI.
+This document is the source-of-truth design contract for contributors and coding agents working on the Xena UI.
+
+## Product story
+
+Xena is a hybrid operations platform where human operators and AI agents work together on the company's own data, systems, and workflows.
+
+The landing page should demonstrate that collaboration rather than describe it with generic SaaS marketing. The canonical flow is:
+
+1. A human operator asks about an operational situation.
+2. An AI agent retrieves governed company context.
+3. Xena presents the relevant structured record.
+4. The human directs or approves an action.
+5. The agent executes against the real system and records the result.
 
 ## Do not revert the refactor
 
-The current UI is the post-refactor Xena design. Do **not** restore:
+Do **not** restore:
 
-- the old multi-section landing page,
+- generic KPI dashboards with invented numbers,
+- multi-section emoji feature grids,
+- fake demo controls or dead marketing links,
+- unverified certification or compliance claims,
 - the old gradient-square text `X` logo,
-- the old teal/cyan-only neon palette,
 - text-heavy loading screens after sign-in,
 - or pre-refactor main-app panel styling.
 
-If a requested change touches UI files, preserve the current design unless the user explicitly asks to roll back to the old design.
+If a requested change touches UI files, preserve the current design unless the user explicitly asks to change its direction.
 
 ## Brand system
 
@@ -21,46 +35,62 @@ Use these logo-derived colors as the canonical palette:
 | Token | Value | Usage |
 | --- | --- | --- |
 | Xena red | `#e30016` | Critical accents, logo red, gradient endpoints |
-| Xena blue | `#0799eb` | Primary actions, logo blue, links, active UI |
-| Xena ink | `#0b1d31` | Wordmark, dark gradients, high-contrast text |
+| Xena blue | `#0799eb` | Primary actions, links, active UI |
+| Xena ink | `#0b1d31` | Wordmark, dark surfaces, high-contrast text |
 
-The reusable `XenaLogo` component is the source of truth for the logo and wordmark. Use it instead of rebuilding an `X` mark with text or CSS.
+The reusable `XenaLogo` component is the source of truth for brand marks.
 
 ## Landing page contract
 
-The landing page must remain focused and minimal:
+The landing page must remain focused, minimal, and product-led:
 
-- Keep the `app.xena.lu` browser/showcase card.
-- Keep the showcase chat as the primary content.
-- Keep the CTA/access card appearing only after the chat animation finishes.
-- Keep light glitch/grid and beam effects in the background.
-- Bootstrap utility classes are encouraged for layout and buttons; avoid rebuilding a large custom marketing page.
+- Keep the overall page white, calm, and enterprise-oriented.
+- Keep the landing experience inside the viewport with persistent, visible navigation. Its four menu-switched views are Overview, Live workflow, Architecture, and Trust model; do not replace them with a long stack of scrolling sections.
+- Lead with human operators and AI agents working as one.
+- Explain that Xena operates on the company's own data, systems, and workflows.
+- Keep the dark `app.xena.lu` browser showcase as the primary visual proof.
+- The showcase must include company data, an explicit human approval, agent execution, and audit context.
+- Supporting content should be limited to the essential platform model and a clear path into authentication.
+- Avoid invented performance metrics, generic feature-card filler, and claims that cannot be substantiated.
+- Preserve responsive behavior so the showcase remains readable on phones and tablets.
+- Use Instrument Sans for expressive product typography and JetBrains Mono for technical labels and live-system metadata.
+
+## Architecture presentation
+
+- Present the Xena application and data plane accurately as managed and serverless; describe OpenClaw as a separate, replaceable gateway island rather than pretending the Lightsail component is serverless.
+- Explain that agent context is transient while operational records remain in managed, access-controlled stores. Do not claim that all data at rest is absent.
+- Describe AWS Secrets Manager as encrypted secret storage, not hashing. Hashes cannot supply recoverable runtime credentials.
+- Preserve the selectable Delivery, Live runtime, Agent island, and Voice loop layers, animated packet flow, component detail panel, and dedicated compact mobile representation.
+- Never claim certifications or compliance outcomes that are not substantiated. Explain the architectural controls and reduced finding surface instead.
 
 ## Auth and boot loading
 
 - The unauthenticated auth-check loading state should be a circular animated loader with no text.
 - The post-sign-in booting state should also be a circular animated loader with no text.
-- The boot idle and error states may still show controls/details so the user can start or retry the warmup sequence.
+- The boot idle and error states may show controls and details so the user can start or retry the warmup sequence.
 
 ## Main app contract
 
 The authenticated app should keep the Xena 2026 visual refresh:
 
 - glassy rounded panels,
-- subtle glitch/grid shell background,
-- logo-derived red/blue accents,
-- Xena logo in top nav and assistant avatars,
-- pill-shaped nav/tabs/buttons where practical,
-- clean chat center with rounded composer and operational side panels.
+- subtle grid shell background,
+- logo-derived red and blue accents,
+- Xena logo in top navigation and assistant avatars,
+- pill-shaped navigation and controls where practical,
+- a clean chat center with operational side panels,
+- and full-width operational modules for record management.
 
-`features/chat/chat-shell.module.css` still contains structural styles for many existing components. The `Xena 2026 Bootstrap-first visual refresh` block is the canonical visual override layer. If you refactor this file, integrate those rules into the main definitions rather than deleting them.
+Refactor the legacy `features/chat/chat-shell.module.css` carefully. Component-scoped modules are the current implementation; remove obsolete duplication without deleting required loading or compatibility styles.
 
-## Safe-edit checklist for LLMs
+## Safe-edit checklist
 
 Before committing UI changes:
 
-1. Confirm `XenaLogo` is still used in the landing page, top nav, boot screen, and assistant avatar surfaces.
-2. Confirm the landing page still includes `app.xena.lu` and the delayed access card reveal.
-3. Confirm loading/booting still use circular textless spinners.
-4. Confirm the Xena red/blue/ink palette remains in global tokens and UI CSS.
-5. Run `npm run lint` at minimum.
+1. Confirm the landing still tells the complete human → agent → company data → approval → execution story.
+2. Confirm the `app.xena.lu` showcase is the primary content rather than a decorative dashboard.
+3. Confirm all landing interactions perform the action their labels promise.
+4. Confirm mobile navigation and the operational showcase remain usable.
+5. Confirm loading and booting still use circular textless spinners.
+6. Confirm the Xena red, blue, and ink palette remains intact.
+7. Run lint, type checking, and a production build whenever the environment permits.
