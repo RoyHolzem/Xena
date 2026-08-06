@@ -53,11 +53,11 @@
 
 .tintBg_critical,
 .tintBg_high,
-.tintBg_major { background: linear-gradient(135deg, rgba(227, 0, 22, 0.13), rgba(8, 12, 22, 0.93) 46%); }
+.tintBg_major { background: linear-gradient(135deg, rgba(227, 0, 22, 0.13), var(--bg-elevated) 46%); }
 .tintBg_medium,
 .tintBg_minor,
-.tintBg_info { background: linear-gradient(135deg, rgba(7, 153, 235, 0.13), rgba(8, 12, 22, 0.93) 46%); }
-.tintBg_low { background: linear-gradient(135deg, rgba(0, 230, 138, 0.1), rgba(8, 12, 22, 0.93) 46%); }
+.tintBg_info { background: linear-gradient(135deg, rgba(7, 153, 235, 0.13), var(--bg-elevated) 46%); }
+.tintBg_low { background: linear-gradient(135deg, rgba(0, 230, 138, 0.1), var(--bg-elevated) 46%); }
 
 .panelSectionTitle {
   color: var(--text-tertiary);

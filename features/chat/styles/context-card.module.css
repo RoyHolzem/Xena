@@ -12,9 +12,9 @@
 .stat_muted { composes: stat_muted from './shared.module.css'; }
 .stat_neutral { composes: stat_neutral from './shared.module.css'; }
 
-.artifactCard { position: relative; overflow: hidden; padding: 15px 15px 12px 17px; border: 1px solid rgba(255,255,255,.08); border-radius: 16px; background: linear-gradient(145deg, rgba(17,24,35,.98), rgba(10,15,23,.98)); box-shadow: 0 20px 50px rgba(0,0,0,.23); animation: artifactIn 220ms cubic-bezier(.16,1,.3,1) both; }
+.artifactCard { position: relative; overflow: hidden; padding: 15px 15px 12px 17px; border: 1px solid var(--border); border-radius: 16px; background: linear-gradient(145deg, rgba(17,24,35,.98), rgba(10,15,23,.98)); box-shadow: 0 20px 50px var(--shadow-sm); animation: artifactIn 220ms cubic-bezier(.16,1,.3,1) both; }
 .artifactRail { position: absolute; inset: 0 auto 0 0; width: 2px; background: #7b8ba1; }
-.artifactTone_critical .artifactRail, .artifactTone_high .artifactRail { background: #ff4d62; box-shadow: 0 0 14px rgba(227,0,22,.35); }
+.artifactTone_critical .artifactRail, .artifactTone_high .artifactRail { background: var(--red); box-shadow: 0 0 14px rgba(227,0,22,.35); }
 .artifactTone_major .artifactRail, .artifactTone_medium .artifactRail { background: #ffbd3f; }
 .artifactTone_minor .artifactRail, .artifactTone_low .artifactRail, .artifactTone_info .artifactRail { background: #31bfff; }
 .artifactHeader { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
@@ -23,18 +23,18 @@
 .artifactId { color: #718096; font: 580 .62rem/1.2 var(--font-mono, 'JetBrains Mono'), monospace; overflow-wrap: anywhere; }
 .artifactBadges { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 5px; }
 .artifactTitle { margin-top: 12px; color: #f0f5fa; font-size: .93rem; line-height: 1.34; letter-spacing: -.015em; font-weight: 680; }
-.artifactSummary { margin-top: 8px; color: #91a0b4; font-size: .78rem; line-height: 1.52; }
-.artifactPulseLine { height: 1px; margin: 13px 0; overflow: hidden; background: rgba(255,255,255,.06); }
+.artifactSummary { margin-top: 8px; color: var(--text-secondary); font-size: .78rem; line-height: 1.52; }
+.artifactPulseLine { height: 1px; margin: 13px 0; overflow: hidden; background: var(--border-subtle); }
 .artifactPulseLine span { display: block; width: 34%; height: 100%; background: linear-gradient(90deg, transparent, rgba(55,194,255,.7), transparent); animation: artifactTrace 2.4s ease-in-out 1; }
 .artifactFacts { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 9px 15px; }
 .artifactFacts > div { min-width: 0; display: grid; gap: 3px; }
-.artifactFacts span { color: #637186; font: 650 .57rem/1.2 var(--font-mono, 'JetBrains Mono'), monospace; letter-spacing: .06em; text-transform: uppercase; }
+.artifactFacts span { color: var(--text-tertiary); font: 650 .57rem/1.2 var(--font-mono, 'JetBrains Mono'), monospace; letter-spacing: .06em; text-transform: uppercase; }
 .artifactFacts strong { color: #b8c5d5; font-size: .7rem; line-height: 1.35; font-weight: 580; overflow-wrap: anywhere; }
-.artifactFooter { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 14px; padding-top: 10px; border-top: 1px solid rgba(255,255,255,.06); }
+.artifactFooter { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 14px; padding-top: 10px; border-top: 1px solid var(--border-subtle); }
 .artifactProvenance { display: flex; align-items: center; gap: 5px; color: #59677a; font: 560 .55rem/1 var(--font-mono, 'JetBrains Mono'), monospace; text-transform: uppercase; letter-spacing: .04em; }
-.liveDot { width: 5px; height: 5px; border-radius: 50%; background: #30d99a; box-shadow: 0 0 8px rgba(48,217,154,.4); }
+.liveDot { width: 5px; height: 5px; border-radius: 50%; background: var(--green); box-shadow: 0 0 8px rgba(48,217,154,.4); }
 .artifactActions { display: flex; align-items: center; gap: 5px; }
-.artifactActions button { min-height: 28px; display: inline-flex; align-items: center; gap: 4px; padding: 0 8px; border: 1px solid rgba(255,255,255,.075); border-radius: 8px; background: rgba(255,255,255,.025); color: #8493a7; font-size: .65rem; font-weight: 650; cursor: pointer; transition: border-color 160ms ease, color 160ms ease, background 160ms ease; }
+.artifactActions button { min-height: 28px; display: inline-flex; align-items: center; gap: 4px; padding: 0 8px; border: 1px solid var(--border); border-radius: 8px; background: var(--tint-surface); color: #8493a7; font-size: .65rem; font-weight: 650; cursor: pointer; transition: border-color 160ms ease, color 160ms ease, background 160ms ease; }
 .artifactActions button:hover { color: #e7f6fe; border-color: rgba(7,153,235,.3); background: rgba(7,153,235,.06); }
 .artifactActions .focusButton { color: #55c8ff; }
 .artifactActions svg { width: 12px; height: 12px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }

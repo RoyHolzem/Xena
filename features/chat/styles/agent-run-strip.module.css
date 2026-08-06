@@ -7,10 +7,10 @@
   padding: 12px 14px;
   overflow: hidden;
   position: relative;
-  border: 1px solid rgba(255,255,255,.075);
+  border: 1px solid var(--border);
   border-radius: 18px;
-  background: linear-gradient(120deg, rgba(15,21,31,.98), rgba(8,12,19,.96));
-  box-shadow: 0 18px 44px rgba(0,0,0,.24);
+  background: var(--bg-card);
+  box-shadow: 0 18px 44px var(--shadow-sm);
 }
 
 .runStrip::before {
@@ -34,15 +34,15 @@
 
 .runSteps { min-width: 0; display: flex; align-items: center; justify-content: flex-end; gap: 6px; overflow: hidden; }
 .runHint { color: #637187; font-size: .72rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.runStep { min-width: 0; max-width: 160px; display: inline-flex; align-items: center; gap: 7px; padding: 7px 9px; border: 1px solid rgba(255,255,255,.06); border-radius: 10px; background: rgba(255,255,255,.025); }
+.runStep { min-width: 0; max-width: 160px; display: inline-flex; align-items: center; gap: 7px; padding: 7px 9px; border: 1px solid var(--border-subtle); border-radius: 10px; background: var(--tint-surface); }
 .runStepState { width: 6px; height: 6px; flex: 0 0 auto; border-radius: 50%; background: #4e5b6e; }
 .runStep_running .runStepState { background: #ffbe3d; box-shadow: 0 0 10px rgba(255,190,61,.4); animation: stateBreath 1.25s ease-in-out infinite; }
-.runStep_done .runStepState { background: #30d99a; }
-.runStep_error .runStepState { background: #ff5265; }
+.runStep_done .runStepState { background: var(--green); }
+.runStep_error .runStepState { background: var(--red); }
 .runStepLabel { color: #9aa8bc; font-size: .68rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
 .runTrust { display: flex; align-items: center; gap: 6px; color: #66758b; font: 650 .6rem/1 var(--font-mono, 'JetBrains Mono'), monospace; text-transform: uppercase; letter-spacing: .06em; white-space: nowrap; }
-.runTrust svg { width: 14px; height: 14px; fill: none; stroke: #30d99a; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
+.runTrust svg { width: 14px; height: 14px; fill: none; stroke: var(--green); stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
 
 @keyframes runOrbit { to { transform: rotate(360deg); } }
 @keyframes stateBreath { 50% { opacity: .4; transform: scale(.82); } }

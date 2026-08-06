@@ -21,8 +21,8 @@
   pointer-events: none;
   opacity: .32;
   background-image:
-    linear-gradient(rgba(255,255,255,.025) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(255,255,255,.025) 1px, transparent 1px);
+    linear-gradient(var(--tint-surface) 1px, transparent 1px),
+    linear-gradient(90deg, var(--tint-surface) 1px, transparent 1px);
   background-size: 48px 48px;
   mask-image: linear-gradient(to bottom, black, transparent 76%);
 }
