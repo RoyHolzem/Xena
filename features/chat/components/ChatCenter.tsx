@@ -18,6 +18,8 @@ interface ChatCenterProps {
   presence: PresenceState;
   error: string | null;
   messagesEndRef: React.RefObject<HTMLDivElement>;
+  messagesScrollRef: React.RefObject<HTMLDivElement>;
+  onMessagesScroll: (event: React.UIEvent<HTMLDivElement>) => void;
   textareaRef: React.RefObject<HTMLTextAreaElement>;
   handleSubmit: (e: React.FormEvent<HTMLFormElement>) => void;
   handleKeyDown: (e: React.KeyboardEvent<HTMLTextAreaElement>) => void;
@@ -31,16 +33,52 @@ interface ChatCenterProps {
   onNavigateToRecord: (view: TelecomView, recordId: string) => void;
 }
 
+const STARTERS = [
+  'Show me the highest-impact open incidents',
+  'What changed in operations today?',
+  'Prepare the next maintenance handover',
+];
+
+function channelState(
+  avatarState: ChatCenterProps['avatarState'],
+  voiceActive: boolean,
+  voiceState: VoiceState,
+) {
+  if (!voiceActive) {
+    if (avatarState === 'thinking') return { label: 'Planning', tone: 'working' };
+    if (avatarState === 'speaking') return { label: 'Responding', tone: 'working' };
+    if (avatarState === 'error') return { label: 'Attention', tone: 'error' };
+    return { label: 'Online', tone: 'ready' };
+  }
+  if (voiceState === 'recording') return { label: 'Listening', tone: 'recording' };
+  if (voiceState === 'transcribing') return { label: 'Transcribing', tone: 'working' };
+  if (voiceState === 'responding') return { label: 'Planning', tone: 'working' };
+  if (voiceState === 'playing') return { label: 'Speaking', tone: 'ready' };
+  if (voiceState === 'error') return { label: 'Voice error', tone: 'error' };
+  return { label: 'Voice ready', tone: 'ready' };
+}
+
+function VoiceIcon({ state, active }: { state: VoiceState; active: boolean }) {
+  if (active && state === 'recording') {
+    return <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="7" y="7" width="10" height="10" rx="2" /></svg>;
+  }
+  if (active && state === 'playing') {
+    return <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M11 6 7 10H4v4h3l4 4V6Z"/><path d="M15 9a4 4 0 0 1 0 6M18 6a8 8 0 0 1 0 12" /></svg>;
+  }
+  return <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="3" width="6" height="12" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3M8 21h8" /></svg>;
+}
+
 export function ChatCenter({
   assistantName,
-  assistantInitial,
   avatarState,
-  statusLabel,
   messages,
   draft,
   setDraft,
+  presence,
   error,
   messagesEndRef,
+  messagesScrollRef,
+  onMessagesScroll,
   textareaRef,
   handleSubmit,
   handleKeyDown,
@@ -49,101 +87,81 @@ export function ChatCenter({
   onToggleVoice,
   voiceActive,
   matchedRecord,
-  matchedView,
   pinnedCards,
   onNavigateToRecord,
 }: ChatCenterProps) {
-  // Determine voice-specific avatar state
-  const effectiveAvatarState = voiceActive
-    ? voiceState === 'recording'
-      ? 'listening'
-      : voiceState === 'transcribing'
-        ? 'thinking'
-        : voiceState === 'responding'
-          ? 'thinking'
-          : voiceState === 'playing'
-            ? 'speaking'
-            : voiceState === 'error'
-              ? 'error'
-              : avatarState
-    : avatarState;
-
-  const effectiveStatusLabel = voiceActive
-    ? voiceState === 'recording'
-      ? 'Recording...'
-      : voiceState === 'transcribing'
-        ? 'Transcribing...'
-        : voiceState === 'responding'
-          ? 'Thinking...'
-        : voiceState === 'playing'
-            ? 'Speaking...'
-            : voiceState === 'error'
-              ? 'Voice Error'
-              : statusLabel
-    : statusLabel;
-
-  // Build a map of messageId -> pinned card for quick lookup
+  const state = channelState(avatarState, voiceActive, voiceState);
   const cardByMessage = new Map<string, PinnedCard>();
-  for (const card of pinnedCards) {
-    cardByMessage.set(card.messageId, card);
-  }
+  for (const card of pinnedCards) cardByMessage.set(card.messageId, card);
 
   return (
-    <div className={styles.chatCenter}>
-      {/* Avatar header */}
-      <div className={styles.chatAvatarBar}>
-        <div className={styles.chatAvatarWrap}>
-          <div className={cn(styles.chatAvatarCircle, styles[`avatar_${effectiveAvatarState}`])}>
-            <img src="/favicon.png" alt="" width={32} height={32} className={styles.chatAvatarLogo} />
+    <section className={styles.chatCenter} aria-label="Xena agent channel">
+      <header className={styles.channelHeader}>
+        <div className={styles.channelIdentity}>
+          <div className={styles.channelMark}>
+            <img src="/favicon.png" alt="" width={27} height={27} />
           </div>
-          <div className={cn(styles.chatAvatarRing, styles[`ring_${effectiveAvatarState}`])} />
-        </div>
-        <div className={styles.chatAvatarInfo}>
-          <div className={styles.chatAvatarName}>{assistantName}</div>
-          <div className={cn(styles.chatAvatarStatus, styles[`status_${effectiveAvatarState}`])}>
-            <span className={styles.chatAvatarStatusDot} />
-            {effectiveStatusLabel}
+          <div>
+            <span className={styles.channelEyebrow}>Human + AI operations</span>
+            <strong className={styles.channelTitle}>{assistantName} channel</strong>
           </div>
         </div>
-      </div>
+        <div className={cn(styles.channelStatus, styles[`channelStatus_${state.tone}`])}>
+          <span aria-hidden="true" />
+          {state.label}
+        </div>
+      </header>
 
-      {/* Messages */}
-      <div className={styles.chatMessages}>
+      <div className={styles.chatMessages} ref={messagesScrollRef} onScroll={onMessagesScroll}>
         {messages.length === 0 && (
           <div className={styles.chatEmptyState}>
-            <p className={styles.chatEmptyTitle}>Operations cockpit</p>
-            <p className={styles.chatEmptyBody}>
-              Ask the operator to search or open incidents, events, and planned works. Operational panels stay empty
-              until the agent emits structured UI actions.
+            <div className={styles.emptySignal} aria-hidden="true">
+              <span /><span /><span />
+            </div>
+            <span className={styles.emptyEyebrow}>Operational intent</span>
+            <h2>What needs attention?</h2>
+            <p>
+              Ask naturally. Xena will use approved skills and company data, then build the operational context here as it works.
             </p>
+            <div className={styles.starterGrid}>
+              {STARTERS.map((starter) => (
+                <button key={starter} type="button" onClick={() => setDraft(starter)}>
+                  <span>{starter}</span>
+                  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 18 6-6-6-6" /></svg>
+                </button>
+              ))}
+            </div>
           </div>
         )}
-        {messages.map((message, index) => {
+
+        {messages.map((message) => {
           const pinnedCard = cardByMessage.get(message.id);
+          const isAssistant = message.role === 'assistant';
           return (
-            <div
+            <article
               key={message.id}
-              className={cn(styles.chatMessage, styles[`msg_${message.role}`], styles.msgEnter)}
-              style={{ animationDelay: `${Math.min(index * 30, 300)}ms` }}
+              className={cn(styles.messageTurn, isAssistant ? styles.turnAssistant : styles.turnUser)}
             >
-              <div className={styles.chatMsgAvatar}>
-                {message.role === 'user' ? 'R' : <img src="/favicon.png" alt="" width={20} height={20} className={styles.chatMsgLogo} />}
+              <div className={styles.turnIdentity}>
+                <span className={styles.turnAvatar}>
+                  {isAssistant ? <img src="/favicon.png" alt="" width={18} height={18} /> : 'RH'}
+                </span>
+                <span className={styles.turnRole}>{isAssistant ? assistantName : 'You'}</span>
+                {message.source === 'voice' && (
+                  <span className={styles.turnSource}>
+                    <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="4" width="6" height="10" rx="3"/><path d="M6 11a6 6 0 0 0 12 0M12 17v3" /></svg>
+                    Voice
+                  </span>
+                )}
               </div>
-              <div className={styles.chatMsgContent}>
-                <div className={styles.chatMsgRole}>
-                  {message.role === 'user' ? 'Roy' : assistantName}
-                  {message.source === 'voice' && (
-                    <span className={styles.voiceTag}>🎤</span>
-                  )}
-                </div>
-                <div className={styles.chatMsgBubble}>
-                  {message.content || (
-                    <div className={styles.typingIndicator}>
-                      <span /><span /><span />
-                    </div>
-                  )}
-                </div>
-                {/* Pinned context card: persists on this message */}
+              <div className={styles.turnBody}>
+                {message.content ? (
+                  <div className={styles.messageText}>{message.content}</div>
+                ) : (
+                  <div className={styles.responseSkeleton} aria-label="Xena is working">
+                    <span /><span /><span />
+                  </div>
+                )}
                 {pinnedCard && (
                   <div className={styles.chatContextCardWrap}>
                     <ContextCard
@@ -155,103 +173,66 @@ export function ChatCenter({
                   </div>
                 )}
               </div>
-            </div>
+            </article>
           );
         })}
         <div ref={messagesEndRef} />
       </div>
 
-      {/* Composer */}
       <form className={styles.chatComposer} onSubmit={handleSubmit}>
         {(error || voiceError) && (
-          <div className={styles.chatError}>{error || voiceError}</div>
+          <div className={styles.chatError} role="alert">{error || voiceError}</div>
         )}
-        <div className={styles.chatComposerInner}>
-          {/* Voice toggle button */}
-          <button
-            type="button"
-            className={cn(
-              styles.chatVoiceBtn,
-              voiceActive && styles.chatVoiceBtnActive,
-              voiceState === 'recording' && styles.chatVoiceBtnListening,
-              voiceState === 'playing' && styles.chatVoiceBtnSpeaking,
-              (voiceState === 'transcribing' || voiceState === 'responding') && styles.chatVoiceBtnConnecting,
-            )}
-            onClick={onToggleVoice}
-            title={
-              !voiceActive ? 'Start voice chat'
-              : voiceState === 'recording' ? 'Stop recording'
-              : 'Cancel'
-            }
-          >
-            {!voiceActive ? (
-              // Inactive: mic outline
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/>
-                <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
-                <line x1="12" y1="19" x2="12" y2="23"/>
-                <line x1="8" y1="23" x2="16" y2="23"/>
-              </svg>
-            ) : voiceState === 'recording' ? (
-              // Recording: filled stop square
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
-                <rect x="6" y="6" width="12" height="12" rx="2"/>
-              </svg>
-            ) : voiceState === 'playing' ? (
-              // Playing: speaker icon
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/>
-                <path d="M15.54 8.46a5 5 0 0 1 0 7.07"/>
-                <path d="M19.07 4.93a10 10 0 0 1 0 14.14"/>
-              </svg>
-            ) : (
-              // Processing: spinner
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={styles.spin}>
-                <path d="M21 12a9 9 0 1 1-6.219-8.56"/>
-              </svg>
-            )}
-          </button>
-
+        {matchedRecord && (
+          <div className={styles.contextRibbon}>
+            <span className={styles.contextRibbonDot} />
+            Working context
+            <strong>{matchedRecord.recordId}</strong>
+          </div>
+        )}
+        <div className={cn(styles.composerSurface, voiceActive && styles.composerSurfaceVoice)}>
           <textarea
             ref={textareaRef}
             className={styles.chatInput}
             value={draft}
-            onChange={(e) => setDraft(e.target.value)}
+            onChange={(event) => setDraft(event.target.value)}
             onKeyDown={handleKeyDown}
             placeholder={
               matchedRecord
-                ? `Follow up on: ${matchedRecord.title.substring(0, 60)}${matchedRecord.title.length > 60 ? '...' : ''}`
+                ? `Continue with ${matchedRecord.recordId}…`
                 : voiceActive
-                  ? 'Voice mode active - speak naturally...'
-                  : 'Ask Xena about incidents, events, planned works, customers, sites, or services...'
+                  ? 'Voice channel active…'
+                  : 'Give Xena an operational intent…'
             }
             rows={1}
             disabled={voiceActive}
+            aria-label="Message Xena"
           />
-          <button
-            className={cn(styles.chatSendBtn, draft.trim() && !voiceActive && styles.chatSendBtnActive)}
-            type="submit"
-            disabled={!draft.trim() || voiceActive}
-          >
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <line x1="22" y1="2" x2="11" y2="13" />
-              <polygon points="22 2 15 22 11 13 2 9 22 2" />
-            </svg>
-          </button>
+          <div className={styles.composerActions}>
+            <button
+              type="button"
+              className={cn(styles.iconButton, voiceActive && styles.iconButtonActive, voiceState === 'recording' && styles.iconButtonRecording)}
+              onClick={onToggleVoice}
+              aria-label={!voiceActive ? 'Start voice channel' : voiceState === 'recording' ? 'Stop recording' : 'Cancel voice channel'}
+              title={!voiceActive ? 'Start voice channel' : 'Stop voice channel'}
+            >
+              <VoiceIcon state={voiceState} active={voiceActive} />
+            </button>
+            <button
+              className={cn(styles.sendButton, draft.trim() && !voiceActive && styles.sendButtonReady)}
+              type="submit"
+              disabled={!draft.trim() || voiceActive || presence === 'processing' || presence === 'typing'}
+              aria-label="Send intent"
+            >
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m5 12 14-7-4 14-3-6-7-1Z"/><path d="m12 13 7-8" /></svg>
+            </button>
+          </div>
         </div>
-        <div className={styles.chatComposerHint}>
-          {voiceActive
-            ? voiceState === 'recording' ? '🔴 Recording - tap to stop'
-              : voiceState === 'transcribing' ? '✓ Transcribing...'
-              : voiceState === 'responding' ? '🧠 Thinking...'
-              : voiceState === 'playing' ? '🔊 Speaking...'
-              : 'Processing...'
-            : matchedRecord
-              ? `📌 Context: ${matchedRecord.recordId}`
-              : 'Shift + Enter for newline'
-          }
+        <div className={styles.composerMeta}>
+          <span>{voiceActive ? state.label : 'Enter to send · Shift + Enter for a new line'}</span>
+          <span className={styles.composerTrust}>Human-controlled execution</span>
         </div>
       </form>
-    </div>
+    </section>
   );
 }

@@ -43,13 +43,15 @@ export function useBootSequence() {
 
     // Step 0: Initialize runtime
     updateStep(0, { status: 'running' });
-    await new Promise((r) => setTimeout(r, 600));
-    updateStep(0, { status: 'ok', detail: 'Next.js SSR Lambda', ms: 600 });
+    const runtimeStartedAt = Date.now();
+    await new Promise((r) => setTimeout(r, 220));
+    updateStep(0, { status: 'ok', detail: 'Next.js SSR Lambda', ms: Date.now() - runtimeStartedAt });
     setProgress(15);
 
     // Step 1-3: Hit warmup endpoint (does secrets, gateway, agent warmup)
     updateStep(1, { status: 'running' });
     updateStep(2, { status: 'running' });
+    updateStep(3, { status: 'running' });
 
     try {
       const warmupRes = await fetch('/api/warmup', {
@@ -102,11 +104,10 @@ export function useBootSequence() {
     setProgress(85);
 
     // Step 5: System ready
-    await new Promise((r) => setTimeout(r, 400));
     updateStep(5, { status: 'ok', detail: 'all systems operational' });
     setProgress(100);
 
-    await new Promise((r) => setTimeout(r, 500));
+    await new Promise((r) => setTimeout(r, 420));
     setBootState('ready');
   }, [getAuthToken, steps, updateStep]);
 

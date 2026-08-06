@@ -23,7 +23,7 @@ Do **not** restore:
 - fake demo controls or dead marketing links,
 - unverified certification or compliance claims,
 - the old gradient-square text `X` logo,
-- text-heavy loading screens after sign-in,
+- opaque or decorative-only loading screens after sign-in,
 - or pre-refactor main-app panel styling.
 
 If a requested change touches UI files, preserve the current design unless the user explicitly asks to change its direction.
@@ -65,21 +65,25 @@ The landing page must remain focused, minimal, and product-led:
 
 ## Auth and boot loading
 
-- The unauthenticated auth-check loading state should be a circular animated loader with no text.
-- The post-sign-in booting state should also be a circular animated loader with no text.
-- The boot idle and error states may show controls and details so the user can start or retry the warmup sequence.
+- The unauthenticated auth-check may remain a minimal loader because it is normally brief.
+- `Start Agent` is a deliberate ignition step that warms the serverless runtime, secured gateway, agent, and operational data connection.
+- During boot, show the real startup stages from `useBootSequence`, elapsed time, completed-stage timings, and the currently active handshake.
+- Do not fabricate determinate progress or hide a long cold start behind a decorative spinner.
+- Use restrained motion only on the active startup stage. Stop motion on completion or failure.
+- Preserve a visible retry path and the completed/failed stage details when startup fails.
 
 ## Main app contract
 
-The authenticated app should keep the Xena 2026 visual refresh:
+The authenticated app is a fixed-viewport **Agent Workbench**:
 
-- glassy rounded panels,
-- subtle grid shell background,
-- logo-derived red and blue accents,
-- Xena logo in top navigation and assistant avatars,
-- pill-shaped navigation and controls where practical,
-- a clean chat center with operational side panels,
-- and full-width operational modules for record management.
+- Keep the written XENA brand and persistent header navigation visible across Operate, Incidents, Events, Maintenance, and Orders.
+- Use a restrained dark control-plane shell, subtle static grid, flat technical surfaces, Xena blue for active state, and Xena red only for critical state.
+- Keep conversation and operational artifacts in the same workspace; focusing an inline artifact must not eject the operator from chat.
+- Present current structured tool/action state in the compact run strip. Do not mix delayed CloudWatch telemetry or prose-inferred records into the verified live trace.
+- Render records, search results, approvals, and receipts as typed artifacts with stable dimensions and clear provenance.
+- Hydrate artifacts in place and animate only state or spatial continuity. Avoid idle pulsing, perpetual scanning, bouncing decoration, and large motion.
+- Operational modules remain available through the header and use the same density, typography, card geometry, and motion tokens.
+- Put model, GitHub, runtime, and theme details in the System panel rather than competing with primary navigation.
 
 Refactor the legacy `features/chat/chat-shell.module.css` carefully. Component-scoped modules are the current implementation; remove obsolete duplication without deleting required loading or compatibility styles.
 
@@ -91,6 +95,7 @@ Before committing UI changes:
 2. Confirm the `app.xena.lu` showcase is the primary content rather than a decorative dashboard.
 3. Confirm all landing interactions perform the action their labels promise.
 4. Confirm mobile navigation and the operational showcase remain usable.
-5. Confirm loading and booting still use circular textless spinners.
+5. Confirm the Start Agent ignition reports truthful cold-start stages, timings, and failures.
 6. Confirm the Xena red, blue, and ink palette remains intact.
-7. Run lint, type checking, and a production build whenever the environment permits.
+7. Confirm keyboard focus and reduced-motion behavior across navigation, composer, artifacts, and expandable sections.
+8. Run lint, type checking, and a production build whenever the environment permits.

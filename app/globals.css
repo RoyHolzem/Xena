@@ -5,6 +5,8 @@
 
 :root {
   color-scheme: light;
+  --font-sans: 'Instrument Sans Variable', 'Instrument Sans', ui-sans-serif, system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono Variable', 'JetBrains Mono', ui-monospace, monospace;
 
   /* ─── Brand ─── */
   --xena-red: #e30016;
@@ -178,7 +180,7 @@ html, body {
   height: 100%;
   background: var(--bg-root);
   color: var(--text);
-  font-family: 'Instrument Sans Variable', 'Instrument Sans', ui-sans-serif, system-ui, sans-serif;
+  font-family: var(--font-sans);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   overflow: hidden;

@@ -29,32 +29,33 @@
 .tintBg_info { composes: tintBg_info from './shared.module.css'; }
 
 /* ─── Layout ─── */
-.moduleDashboard { flex: 1; min-width: 0; min-height: 0; display: flex; flex-direction: column; overflow: hidden; padding: 18px; border: 1px solid var(--border); border-radius: 28px; background: color-mix(in srgb, var(--bg-card) 92%, transparent); box-shadow: 0 26px 70px rgba(0,0,0,.2); backdrop-filter: blur(20px); }
+.moduleDashboard { flex: 1; min-width: 0; min-height: 0; display: flex; flex-direction: column; overflow: hidden; padding: 18px; border: 1px solid rgba(255,255,255,.075); border-radius: 22px; background: linear-gradient(180deg,rgba(12,17,25,.98),rgba(7,10,16,.98)); box-shadow: 0 28px 70px rgba(0,0,0,.3); }
 .moduleHeader, .moduleSummaryRow, .moduleGrid, .statusFilterBar { max-width: 1440px; margin-inline: auto; }
 .moduleHeader { display:flex; align-items:center; justify-content:space-between; gap:18px; margin-bottom:18px; }
 .moduleHeaderLeft { min-width:0; display:flex; align-items:center; gap:12px; }
-.backToXenaBtn, .moduleRefresh { border:1px solid var(--border); border-radius:999px; background:var(--bg-card); color:var(--text-secondary); padding:9px 13px; font:inherit; font-size:.78rem; font-weight:800; cursor:pointer; }
-.moduleTitle { color:var(--text); font-size:1.45rem; font-weight:950; letter-spacing:-.04em; }
+.backToXenaBtn, .moduleRefresh { border:1px solid rgba(255,255,255,.08); border-radius:10px; background:rgba(255,255,255,.025); color:#8190a4; padding:9px 12px; font:inherit; font-size:.7rem; font-weight:650; cursor:pointer; }
+.moduleTitle { color:#f0f4f8; font-size:1.45rem; font-weight:700; letter-spacing:-.045em; }
 .moduleSubtitle { color:var(--text-secondary); font-size:.86rem; margin-top:2px; }
 .moduleToolbar { display:flex; align-items:center; gap:10px; }
-.moduleSearch { min-width:260px; height:40px; border:1px solid var(--border); border-radius:999px; background:var(--bg-input); color:var(--text); padding:0 14px; outline:none; font:inherit; }
+.moduleSearch { min-width:260px; height:40px; border:1px solid rgba(255,255,255,.08); border-radius:10px; background:#0b111a; color:var(--text); padding:0 12px; outline:none; font:inherit; font-size:.75rem; }
 .moduleSearch:focus { border-color:rgba(7,153,235,.38); box-shadow:0 0 0 3px rgba(7,153,235,.08); }
-.moduleRefresh { color:#fff; background:linear-gradient(135deg,var(--xena-red,#e30016),var(--xena-blue,#0799eb)); box-shadow:0 14px 32px rgba(7,153,235,.24); }
+.moduleRefresh { color:#e9f7fe; border-color:rgba(7,153,235,.28); background:rgba(7,153,235,.1); }
 
 /* ─── Create button ─── */
-.moduleCreateBtn { border:1px solid rgba(7,153,235,.3); border-radius:999px; background:rgba(7,153,235,.1); color:#62c5ff; padding:9px 16px; font:inherit; font-size:.78rem; font-weight:800; cursor:pointer; transition: all .15s; }
+.moduleCreateBtn { border:1px solid #0799eb; border-radius:10px; background:#0799eb; color:#fff; padding:9px 14px; font:inherit; font-size:.72rem; font-weight:680; cursor:pointer; transition: background .16s,border-color .16s,transform .16s; }
 .moduleCreateBtn:hover { background:rgba(7,153,235,.2); border-color:rgba(7,153,235,.5); }
 
 /* ─── Summary cards ─── */
 .moduleSummaryRow { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:12px; margin-bottom:14px; }
-.moduleSummaryCard { min-width:0; padding:16px; border:1px solid var(--border); border-radius:22px; background:var(--bg-card); box-shadow:0 16px 40px rgba(0,0,0,.12); }
-.moduleSummaryValue { color:var(--text); font-size:1.45rem; font-weight:950; }
+.moduleSummaryCard { min-width:0; padding:14px; position:relative; overflow:hidden; border:1px solid rgba(255,255,255,.065); border-radius:13px; background:rgba(255,255,255,.018); }
+.moduleSummaryCard::before { content:''; position:absolute; inset:0 auto 0 0; width:2px; background:rgba(7,153,235,.6); }
+.moduleSummaryValue { color:#edf3f8; font-size:1.38rem; font-weight:700; letter-spacing:-.035em; }
 .moduleSummaryLabel { color:var(--text-secondary); font-size:.78rem; font-weight:900; margin-top:4px; }
 .moduleSummaryHint { color:var(--text-tertiary); font-size:.72rem; margin-top:2px; }
 
 /* ─── Status filter tabs ─── */
 .statusFilterBar { display:flex; gap:4px; margin-bottom:14px; overflow-x:auto; padding-bottom:2px; }
-.statusFilterTab { border:1px solid var(--border); border-radius:999px; background:transparent; color:var(--text-secondary); padding:6px 14px; font:inherit; font-size:.72rem; font-weight:700; cursor:pointer; white-space:nowrap; transition: all .15s; }
+.statusFilterTab { border:1px solid rgba(255,255,255,.065); border-radius:8px; background:transparent; color:#748297; padding:6px 11px; font:inherit; font-size:.65rem; font-weight:620; cursor:pointer; white-space:nowrap; transition: border-color .15s,background .15s,color .15s; }
 .statusFilterTab:hover { background:rgba(255,255,255,.04); border-color:rgba(7,153,235,.25); }
 .statusFilterTabActive { background:rgba(7,153,235,.12); color:#62c5ff; border-color:rgba(7,153,235,.4); }
 .statusFilterCount { display:inline-block; min-width:18px; text-align:center; padding:1px 5px; border-radius:999px; background:rgba(255,255,255,.06); font-size:.64rem; margin-left:4px; }
@@ -62,18 +63,18 @@
 
 /* ─── Main grid ─── */
 .moduleGrid { flex: 1; min-height: 0; display:grid; grid-template-columns:minmax(340px,.7fr) minmax(400px,1fr); gap:14px; overflow:hidden; }
-.moduleList, .moduleDetail { min-width:0; min-height:0; overflow-y:auto; border:1px solid var(--border); border-radius:28px; background:rgba(255,255,255,.02); padding:12px; }
+.moduleList, .moduleDetail { min-width:0; min-height:0; overflow-y:auto; overscroll-behavior:contain; border:1px solid rgba(255,255,255,.065); border-radius:16px; background:rgba(255,255,255,.012); padding:10px; }
 
 /* ─── Record card ─── */
-.moduleRecordCard { position:relative; width:100%; display:flex; align-items:stretch; margin-bottom:10px; border:1px solid var(--border); border-radius:20px; background:var(--bg-card); color:var(--text); font:inherit; box-shadow:0 12px 30px rgba(0,0,0,.1); overflow:hidden; }
-.moduleRecordCard:hover, .moduleRecordCardActive { border-color:rgba(7,153,235,.38); background:rgba(7,153,235,.07); }
+.moduleRecordCard { position:relative; width:100%; display:flex; align-items:stretch; margin-bottom:8px; border:1px solid rgba(255,255,255,.065); border-radius:13px; background:rgba(255,255,255,.018); color:var(--text); font:inherit; overflow:hidden; transition:border-color .16s,background .16s,transform .16s; }
+.moduleRecordCard:hover, .moduleRecordCardActive { transform:translateX(2px); border-color:rgba(7,153,235,.36); background:rgba(7,153,235,.05); }
 .cardClickArea { flex:1; display:block; text-align:left; background:none; border:none; color:inherit; font:inherit; cursor:pointer; padding:14px; min-width:0; }
 .moduleRecordHead { display:flex; justify-content:space-between; align-items:flex-start; gap:10px; margin-bottom:8px; }
 .moduleRecordHead time { color:var(--text-tertiary); font-size:.7rem; white-space:nowrap; }
 .moduleRecordBadges { display:flex; flex-wrap:wrap; gap:5px; }
-.moduleRecordTitle { color:var(--text); font-weight:900; line-height:1.35; overflow-wrap:anywhere; }
+.moduleRecordTitle { color:#c6d1de; font-weight:620; line-height:1.38; overflow-wrap:anywhere; }
 .moduleRecordMeta { margin-top:8px; color:var(--text-tertiary); font-size:.72rem; }
-.moduleRecordId { font-family:ui-monospace,'SF Mono','Fira Code',monospace; font-size:.72rem; font-weight:700; color:var(--accent-bright); letter-spacing:.02em; }
+.moduleRecordId { font-family:var(--font-mono); font-size:.62rem; font-weight:620; color:#54c8ff; letter-spacing:.02em; }
 
 /* ─── Card quick status action ─── */
 .cardQuickAction { position:relative; display:flex; align-items:flex-start; padding:10px 8px 0 0; }
@@ -87,10 +88,10 @@
 .cardStatusOption:disabled { opacity:.5; cursor:default; }
 
 /* ─── Record detail panel ─── */
-.moduleDetailInner { padding:18px; border:1px solid var(--border); border-radius:22px; background:var(--bg-card); box-shadow:0 16px 40px rgba(0,0,0,.12); }
+.moduleDetailInner { padding:15px; border:1px solid rgba(255,255,255,.065); border-radius:14px; background:rgba(255,255,255,.018); }
 .moduleDetailSummary { margin-top:14px; color:var(--text-secondary); line-height:1.55; font-size:.88rem; position:relative; }
 .moduleDetailHighlights { margin-top:14px; display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:8px; }
-.moduleDetailHighlight { padding:11px; border:1px solid var(--border); border-radius:14px; background:rgba(255,255,255,.025); }
+.moduleDetailHighlight { padding:10px; border:1px solid rgba(255,255,255,.06); border-radius:10px; background:rgba(255,255,255,.018); }
 .moduleDetailHLLabel { color:var(--text-tertiary); font-size:.64rem; font-weight:900; letter-spacing:.08em; text-transform:uppercase; }
 .moduleDetailHLValue { color:var(--text); font-size:.82rem; margin-top:4px; overflow-wrap:anywhere; }
 .moduleDetailFacts { margin-top:14px; display:grid; gap:8px; }
@@ -101,10 +102,10 @@
 .moduleEmpty { min-height:180px; display:grid; place-items:center; color:var(--text-tertiary); text-align:center; padding:24px; }
 
 /* ─── Detail hero ─── */
-.detailHero { padding:18px; border-radius:16px; border:1px solid var(--border); background:var(--bg-card); box-shadow:0 8px 24px rgba(0,0,0,.08); margin-bottom:14px; }
+.detailHero { padding:16px; border-radius:13px; border:1px solid rgba(255,255,255,.07); background:linear-gradient(145deg,rgba(18,25,36,.96),rgba(10,15,23,.96)); margin-bottom:12px; }
 .detailHeroKind { font-size:.64rem; font-weight:800; text-transform:uppercase; letter-spacing:.08em; color:var(--text-tertiary); margin-bottom:4px; }
 .detailHeroId { font-family:ui-monospace,'SF Mono','Fira Code',monospace; font-size:.82rem; font-weight:700; color:var(--accent-bright); letter-spacing:.01em; margin-bottom:8px; padding:4px 10px; background:rgba(7,153,235,.1); border-radius:6px; display:inline-block; }
-.detailHeroTitle { font-size:1.15rem; font-weight:950; line-height:1.3; letter-spacing:-.02em; color:var(--text); margin-bottom:10px; }
+.detailHeroTitle { font-size:1.08rem; font-weight:680; line-height:1.3; letter-spacing:-.025em; color:#edf3f8; margin-bottom:10px; }
 .detailHeroBadges { display:flex; flex-wrap:wrap; gap:6px; }
 
 /* ─── Timestamps ─── */
@@ -113,18 +114,18 @@
 .detailTimeRow strong { color:var(--text-secondary); }
 
 /* ─── Status action bar (detail panel) ─── */
-.statusActionBar { margin-bottom:14px; padding:12px 16px; border:1px solid var(--border); border-radius:16px; background:rgba(255,255,255,.02); }
+.statusActionBar { margin-bottom:12px; padding:11px 13px; border:1px solid rgba(255,255,255,.065); border-radius:12px; background:rgba(255,255,255,.018); }
 .statusActionLabel { font-size:.76rem; color:var(--text-secondary); margin-bottom:8px; }
 .statusActionLabel strong { color:var(--text); }
 .statusActionButtons { display:flex; flex-wrap:wrap; gap:6px; }
-.statusTransitionBtn { border:1px solid rgba(7,153,235,.25); border-radius:999px; background:rgba(7,153,235,.08); color:#62c5ff; padding:6px 14px; font:inherit; font-size:.72rem; font-weight:700; cursor:pointer; transition: all .15s; }
+.statusTransitionBtn { border:1px solid rgba(7,153,235,.25); border-radius:8px; background:rgba(7,153,235,.07); color:#62c5ff; padding:6px 10px; font:inherit; font-size:.64rem; font-weight:650; cursor:pointer; transition: background .15s,border-color .15s; }
 .statusTransitionBtn:hover { background:rgba(7,153,235,.18); border-color:rgba(7,153,235,.45); box-shadow:0 4px 16px rgba(7,153,235,.15); }
 .statusTransitionBtn:disabled { opacity:.5; cursor:default; }
 .statusTransitionBtnClose { border-color:rgba(0,230,138,.2); background:rgba(0,230,138,.06); color:#2df2a3; }
 .statusTransitionBtnClose:hover { background:rgba(0,230,138,.14); border-color:rgba(0,230,138,.4); }
 
 /* ─── Quick edit row (severity + priority) ─── */
-.quickEditRow { display:flex; gap:16px; margin-bottom:14px; padding:12px 16px; border:1px solid var(--border); border-radius:16px; background:rgba(255,255,255,.02); }
+.quickEditRow { display:flex; gap:16px; margin-bottom:12px; padding:11px 13px; border:1px solid rgba(255,255,255,.065); border-radius:12px; background:rgba(255,255,255,.018); }
 .quickEditGroup { min-width:0; }
 .quickEditLabel { display:block; font-size:.64rem; font-weight:800; text-transform:uppercase; letter-spacing:.06em; color:var(--text-tertiary); margin-bottom:6px; }
 .quickEditOptions { display:flex; gap:4px; }
@@ -146,7 +147,7 @@
 
 /* ─── Create record modal ─── */
 .modalOverlay { position:fixed; inset:0; z-index:100; display:grid; place-items:center; background:rgba(0,0,0,.6); backdrop-filter:blur(8px); }
-.modalContent { width:90%; max-width:600px; max-height:85vh; overflow:auto; border:1px solid var(--border); border-radius:28px; background:var(--bg-card); box-shadow:0 24px 80px rgba(0,0,0,.4); padding:24px; }
+.modalContent { width:90%; max-width:600px; max-height:85vh; overflow:auto; border:1px solid rgba(255,255,255,.09); border-radius:18px; background:#0c1119; box-shadow:0 24px 80px rgba(0,0,0,.5); padding:22px; }
 .modalHeader { display:flex; align-items:center; justify-content:space-between; margin-bottom:20px; }
 .modalTitle { color:var(--text); font-size:1.1rem; font-weight:950; letter-spacing:-.02em; }
 .modalClose { border:none; background:none; color:var(--text-tertiary); font-size:1.2rem; cursor:pointer; padding:4px 8px; border-radius:8px; }
