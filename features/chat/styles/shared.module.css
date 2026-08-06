@@ -22,33 +22,33 @@
 
 .tone_critical,
 .tone_high,
-.tone_major { background: rgba(227, 0, 22, 0.15); color: #ff6b76; border: 1px solid rgba(227, 0, 22, 0.28); }
+.tone_major { background: rgba(227, 0, 22, 0.15); color: var(--red); border: 1px solid rgba(227, 0, 22, 0.28); }
 .tone_medium,
-.tone_minor { background: rgba(7, 153, 235, 0.14); color: #62c5ff; border: 1px solid rgba(7, 153, 235, 0.26); }
+.tone_minor { background: rgba(7, 153, 235, 0.14); color: var(--accent); border: 1px solid rgba(7, 153, 235, 0.26); }
 .tone_low,
-.tone_info { background: rgba(0, 230, 138, 0.12); color: #2df2a3; border: 1px solid rgba(0, 230, 138, 0.22); }
+.tone_info { background: rgba(0, 230, 138, 0.12); color: var(--green); border: 1px solid rgba(0, 230, 138, 0.22); }
 
 .stat_ok,
 .stat_resolved,
 .stat_closed,
 .stat_RESOLVED,
-.stat_CLOSED { background: rgba(0, 230, 138, 0.12); color: #2df2a3; border: 1px solid rgba(0, 230, 138, 0.22); }
+.stat_CLOSED { background: rgba(0, 230, 138, 0.12); color: var(--green); border: 1px solid rgba(0, 230, 138, 0.22); }
 .stat_warn,
 .stat_acknowledged,
 .stat_in_progress,
 .stat_ACKNOWLEDGED,
-.stat_IN_PROGRESS { background: rgba(255, 176, 32, 0.13); color: #ffd081; border: 1px solid rgba(255, 176, 32, 0.24); }
-.stat_muted { background: rgba(148, 163, 184, 0.12); color: #a9b5c8; border: 1px solid rgba(148, 163, 184, 0.2); }
+.stat_IN_PROGRESS { background: rgba(255, 176, 32, 0.13); color: var(--amber); border: 1px solid rgba(255, 176, 32, 0.24); }
+.stat_muted { background: rgba(148, 163, 184, 0.12); color: var(--text-tertiary); border: 1px solid rgba(148, 163, 184, 0.2); }
 .stat_neutral,
 .stat_open,
-.stat_OPEN { background: rgba(7, 153, 235, 0.14); color: #62c5ff; border: 1px solid rgba(7, 153, 235, 0.26); }
+.stat_OPEN { background: rgba(7, 153, 235, 0.14); color: var(--accent); border: 1px solid rgba(7, 153, 235, 0.26); }
 
 .toneRow_critical,
 .toneRow_high,
 .toneRow_major { border-left: 4px solid var(--xena-red, #e30016); }
 .toneRow_medium,
 .toneRow_minor,
-.toneRow_info { border-left: 4px solid var(--xena-blue, #0799eb); }
+.toneRow_info { border-left: 4px solid var(--xena-blue, var(--accent)); }
 .toneRow_low { border-left: 4px solid var(--green); }
 
 .tintBg_critical,

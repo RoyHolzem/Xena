@@ -2,17 +2,17 @@
 .agentActionsHeader { display: flex; align-items: center; gap: 9px; padding: 14px 16px; border-bottom: 1px solid var(--border); }
 .agentActionsDot { width: 6px; height: 6px; border-radius: 999px; background: var(--green); box-shadow: 0 0 8px var(--green-glow); }
 .agentActionsTitle { flex: 1; color: var(--text-tertiary); font-size: .68rem; font-weight: 900; letter-spacing: .09em; text-transform: uppercase; }
-.agentActionsCount { background: rgba(7,153,235,.14); color: #62c5ff; border: 1px solid rgba(7,153,235,.22); }
+.agentActionsCount { background: rgba(7,153,235,.14); color: var(--accent); border: 1px solid rgba(7,153,235,.22); }
 .agentActionsList { flex: 1; min-height: 0; overflow: auto; display: flex; flex-direction: column; gap: 8px; padding: 10px; }
 .agentActionsEmpty { flex: 1; display: grid; place-items: center; align-content: center; gap: 10px; padding: 30px 16px; color: var(--text-tertiary); text-align: center; font-size: .82rem; line-height: 1.45; }
 .agentActionsEmptyIcon { opacity: .45; font-size: 1.6rem; }
 .agentActionEntry { display: grid; grid-template-columns: 28px minmax(0,1fr) auto; gap: 9px; padding: 10px; border: 1px solid var(--border); border-radius: 16px; background: var(--tint-surface); color: var(--text-secondary); animation: slideUp .2s ease both; }
 .agentActionClickable { cursor: pointer; }
 .agentActionClickable:hover { border-color: rgba(7,153,235,.28); background: rgba(7,153,235,.06); }
-.agentActionIcon { width: 28px; height: 28px; display: grid; place-items: center; border-radius: 10px; background: rgba(7,153,235,.13); color: #62c5ff; font-size: .72rem; font-weight: 900; }
-.agentAction_running .agentActionIcon { background: rgba(255,176,32,.13); color: #ffd081; }
-.agentAction_done .agentActionIcon { background: rgba(0,230,138,.12); color: #2df2a3; }
-.agentAction_error .agentActionIcon { background: rgba(227,0,22,.15); color: #ff6b76; }
+.agentActionIcon { width: 28px; height: 28px; display: grid; place-items: center; border-radius: 10px; background: rgba(7,153,235,.13); color: var(--accent); font-size: .72rem; font-weight: 900; }
+.agentAction_running .agentActionIcon { background: rgba(255,176,32,.13); color: var(--amber); }
+.agentAction_done .agentActionIcon { background: rgba(0,230,138,.12); color: var(--green); }
+.agentAction_error .agentActionIcon { background: rgba(227,0,22,.15); color: var(--red); }
 .agentActionSpinner { width: 12px; height: 12px; border-radius: 999px; border: 2px solid currentColor; border-top-color: transparent; animation: spin .8s linear infinite; }
 .agentActionContent { min-width: 0; }
 .agentActionLabel { color: var(--text); font-size: .79rem; font-weight: 800; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
