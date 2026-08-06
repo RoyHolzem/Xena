@@ -4,7 +4,7 @@ import { useState } from 'react';
 import type { TelecomRecord, TelecomView } from '@/lib/types';
 import { cn } from '../chat-utils';
 import { formatDateTime, severityTone, statusTone } from '@/features/operations/ops-helpers';
-import styles from '../chat-shell.module.css';
+import styles from '../styles/record-overlay.module.css';
 
 type Section = 'details' | 'facts' | 'network' | 'notice';
 

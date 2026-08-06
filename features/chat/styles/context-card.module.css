@@ -1,38 +1,76 @@
-.sevBadge { composes: sevBadge from './shared.module.css'; }
-.statusBadgeChip { composes: statusBadgeChip from './shared.module.css'; }
-.tone_critical { composes: tone_critical from './shared.module.css'; }
-.tone_high { composes: tone_high from './shared.module.css'; }
-.tone_major { composes: tone_major from './shared.module.css'; }
-.tone_medium { composes: tone_medium from './shared.module.css'; }
-.tone_minor { composes: tone_minor from './shared.module.css'; }
-.tone_low { composes: tone_low from './shared.module.css'; }
-.tone_info { composes: tone_info from './shared.module.css'; }
-.stat_ok { composes: stat_ok from './shared.module.css'; }
-.stat_warn { composes: stat_warn from './shared.module.css'; }
-.stat_muted { composes: stat_muted from './shared.module.css'; }
-.stat_neutral { composes: stat_neutral from './shared.module.css'; }
-.tintBg_critical { composes: tintBg_critical from './shared.module.css'; }
-.tintBg_high { composes: tintBg_high from './shared.module.css'; }
-.tintBg_major { composes: tintBg_major from './shared.module.css'; }
-.tintBg_medium { composes: tintBg_medium from './shared.module.css'; }
-.tintBg_minor { composes: tintBg_minor from './shared.module.css'; }
-.tintBg_low { composes: tintBg_low from './shared.module.css'; }
-.tintBg_info { composes: tintBg_info from './shared.module.css'; }
-.contextCard { position: relative; overflow: hidden; padding: 14px; border: 1px solid var(--border); border-radius: 22px; background: var(--bg-card); box-shadow: 0 16px 40px rgba(0,0,0,.12); }
-.contextCard::before { content:''; position:absolute; inset:0 auto auto 0; width:100%; height:2px; background: linear-gradient(90deg,var(--xena-blue,#0799eb),var(--xena-red,#e30016)); }
-.contextCardCompact { padding: 12px; }
-.contextCardClickable { cursor: pointer; transition: transform .15s, box-shadow .15s, border-color .15s; }
-.contextCardClickable:hover { transform: translateY(-2px); box-shadow: 0 20px 50px rgba(0,0,0,.18); border-color: rgba(7,153,235,.35); }
-.contextCardHeader { display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom:8px; }
-.contextCardType { color:#62c5ff; font-size:.66rem; font-weight:900; letter-spacing:.08em; text-transform:uppercase; }
-.contextCardId { color:var(--text-tertiary); font-size:.66rem; font-family:'SF Mono','Fira Code',monospace; font-weight:700; }
-.contextCardBadges { display:flex; gap:5px; flex-wrap:wrap; justify-content:flex-end; }
-.contextCardTitle { color:var(--text); font-size:.88rem; font-weight:900; line-height:1.35; overflow-wrap:anywhere; }
-.contextCardSummary { margin-top:7px; color:var(--text-secondary); font-size:.78rem; line-height:1.5; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; }
-.contextCardMeta, .contextCardFacts { margin-top:9px; padding-top:9px; border-top:1px solid var(--border); display:grid; gap:5px; }
-.contextCardMetaRow, .contextCardFact { display:grid; grid-template-columns:minmax(0,.85fr) minmax(0,1.15fr); gap:8px; font-size:.72rem; }
-.contextCardMetaRow span, .contextCardFact span { color:var(--text-tertiary); }
-.contextCardMetaRow strong, .contextCardFact strong { color:var(--text-secondary); text-align:right; overflow-wrap:anywhere; }
-.contextCardExpandBtn { margin-top:10px; display:inline-flex; align-items:center; gap:6px; border:0; border-radius:999px; background:rgba(7,153,235,.12); color:#62c5ff; padding:6px 9px; font:inherit; font-size:.72rem; font-weight:800; cursor:pointer; }
-.contextCardExpandIcon { transition:transform .15s; }
-.contextCardExpandIconOpen { transform:rotate(90deg); }
+/* ─── ContextCard — light-first ─── */
+
+.contextCard {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--paper);
+  box-shadow: var(--shadow-1);
+  cursor: pointer;
+  transition: all var(--dur-2) var(--ease-glide);
+  animation: cardSlideIn var(--dur-3) var(--ease-glide);
+}
+
+[data-theme="dark"] .contextCard {
+  background: var(--bg-card);
+  border-color: var(--border);
+}
+
+.contextCard:hover {
+  border-color: rgba(7, 153, 235, 0.30);
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-2);
+}
+
+.contextCardCompact {
+  padding: 8px 12px;
+}
+
+.contextHead {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+}
+
+.contextKind {
+  color: var(--muted);
+  font-size: 0.60rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+[data-theme="dark"] .contextKind { color: var(--text-tertiary); }
+
+.contextBadges {
+  display: flex;
+  gap: 4px;
+}
+
+.contextTitle {
+  color: var(--ink);
+  font-size: 0.84rem;
+  font-weight: 700;
+  line-height: 1.35;
+}
+
+[data-theme="dark"] .contextTitle { color: var(--text); }
+
+.contextMeta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  color: var(--muted);
+  font-size: 0.70rem;
+}
+
+[data-theme="dark"] .contextMeta { color: var(--text-tertiary); }
+
+@keyframes cardSlideIn {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
+}

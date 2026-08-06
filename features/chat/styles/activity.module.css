@@ -1,4 +1,144 @@
-.agentActivityBar { min-height: 38px; display: flex; align-items: center; gap: 10px; padding: 0 14px; border: 1px solid rgba(7,153,235,.18); border-radius: 999px; background: color-mix(in srgb, var(--bg-card) 86%, transparent); color: var(--text-secondary); font-size: .78rem; font-weight: 700; backdrop-filter: blur(18px); }
-.agentActivityDot { width: 7px; height: 7px; border-radius: 999px; background: var(--green); box-shadow: 0 0 10px var(--green-glow); animation: pulse 1.8s ease-in-out infinite; }
-.agentActivityText { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-@keyframes pulse { 50% { opacity: .35; transform: scale(.8); } }
+/* ═══════════════════════════════════════════════════════════════════
+   Agent Activity Bar — Thin Status Strip Above Chat
+   SaaS-grade polished bar (Linear / Vercel quality)
+
+   Tokens consumed from :root / [data-theme="dark"] globals.css:
+     --paper --canvas --ink --muted --line
+     --xena-blue --xena-red --xena-ink
+     --green --green-glow --amber --amber-glow
+     --bg-glass --bg-card --border --border-accent
+     --text --text-secondary
+     --shadow-2 --shadow-glow
+     --tint-hover --accent-muted
+     --ease-glide --dur-2 --dur-3
+   ═══════════════════════════════════════════════════════════════════ */
+
+/* ─── Bar Container ──────────────────────────────────────────────── */
+.agentActivityBar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 38px;
+  padding: 0 18px;
+  border-radius: 999px;
+  border: 1px solid var(--border-accent);
+  background: var(--bg-glass);
+  box-shadow: var(--shadow-2);
+  backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  position: relative;
+  overflow: hidden;
+  isolation: isolate;
+  transition:
+    border-color var(--dur-2) var(--ease-glide),
+    box-shadow var(--dur-2) var(--ease-glide);
+}
+
+/* ─── Shimmer sweep across the bar background ───────────────────── */
+.agentActivityBar::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  border-radius: inherit;
+  background: linear-gradient(
+    105deg,
+    transparent 0%,
+    transparent 40%,
+    rgba(7, 153, 235, 0.04) 44%,
+    rgba(7, 153, 235, 0.08) 48%,
+    rgba(7, 153, 235, 0.04) 52%,
+    transparent 56%,
+    transparent 100%
+  );
+  background-size: 300% 100%;
+  animation: activityShimmer 3s var(--ease-glide) infinite;
+  pointer-events: none;
+}
+
+/* ─── Pulse Dot ──────────────────────────────────────────────────── */
+.agentActivityDot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--green);
+  box-shadow: 0 0 10px var(--green-glow);
+  flex-shrink: 0;
+  position: relative;
+  z-index: 1;
+  animation: activityPulse 1.8s ease-in-out infinite;
+}
+
+/* ─── Status Text ────────────────────────────────────────────────── */
+.agentActivityText {
+  flex: 1;
+  min-width: 0;
+  font-size: 0.76rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  position: relative;
+  z-index: 1;
+  user-select: none;
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   Keyframe Animations
+   ═══════════════════════════════════════════════════════════════════ */
+
+@keyframes activityPulse {
+  0%, 100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.35;
+    transform: scale(0.7);
+  }
+}
+
+@keyframes activityShimmer {
+  0% {
+    background-position: 300% 0;
+  }
+  100% {
+    background-position: -300% 0;
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   Dark Theme Overrides
+   ═══════════════════════════════════════════════════════════════════ */
+
+[data-theme="dark"] .agentActivityBar {
+  background: var(--bg-glass);
+  border-color: var(--border-accent);
+  box-shadow:
+    var(--shadow-2),
+    0 0 30px rgba(7, 153, 235, 0.06);
+}
+
+[data-theme="dark"] .agentActivityBar::before {
+  background: linear-gradient(
+    105deg,
+    transparent 0%,
+    transparent 40%,
+    rgba(7, 153, 235, 0.06) 44%,
+    rgba(7, 153, 235, 0.12) 48%,
+    rgba(7, 153, 235, 0.06) 52%,
+    transparent 56%,
+    transparent 100%
+  );
+  background-size: 300% 100%;
+}
+
+[data-theme="dark"] .agentActivityDot {
+  background: var(--green);
+  box-shadow: 0 0 14px var(--green-glow);
+}
+
+[data-theme="dark"] .agentActivityText {
+  color: var(--text-secondary);
+}

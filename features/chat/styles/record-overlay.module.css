@@ -1,0 +1,239 @@
+/* ─── RecordOverlay — extracted from legacy, light-first ─── */
+
+.recordCardClose {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  width: 28px;
+  height: 28px;
+  display: grid;
+  place-items: center;
+  border: 0;
+  border-radius: 50%;
+  background: var(--canvas);
+  color: var(--muted);
+  font-size: 1rem;
+  cursor: pointer;
+  z-index: 10;
+  transition: all var(--dur-1) var(--ease-glide);
+}
+
+[data-theme="dark"] .recordCardClose {
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--text-secondary);
+}
+
+.recordCardClose:hover {
+  background: rgba(220, 38, 38, 0.10);
+  color: #dc2626;
+}
+
+.recordCardHeader {
+  padding: 16px;
+  border-bottom: 1px solid var(--line);
+}
+
+[data-theme="dark"] .recordCardHeader { border-color: var(--border); }
+
+.recordCardEntity {
+  color: var(--muted);
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  margin-bottom: 4px;
+}
+
+[data-theme="dark"] .recordCardEntity { color: var(--text-tertiary); }
+
+.recordCardTitle {
+  color: var(--ink);
+  font-size: 1rem;
+  font-weight: 800;
+  line-height: 1.35;
+  margin-bottom: 6px;
+}
+
+[data-theme="dark"] .recordCardTitle { color: var(--text); }
+
+.recordCardBadges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.recordCardSummary {
+  padding: 10px 16px;
+  color: var(--ink);
+  font-size: 0.84rem;
+  line-height: 1.5;
+  border-bottom: 1px solid var(--line);
+}
+
+[data-theme="dark"] .recordCardSummary {
+  color: var(--text-secondary);
+  border-color: var(--border);
+}
+
+/* ─── Sections ─── */
+.recordSection {
+  border-bottom: 1px solid var(--line);
+}
+
+[data-theme="dark"] .recordSection { border-color: var(--border); }
+
+.recordSectionToggle {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 16px;
+  border: 0;
+  background: transparent;
+  color: var(--ink);
+  font-size: 0.78rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background var(--dur-1);
+}
+
+[data-theme="dark"] .recordSectionToggle { color: var(--text); }
+
+.recordSectionToggle:hover { background: var(--canvas); }
+[data-theme="dark"] .recordSectionToggle:hover { background: rgba(255, 255, 255, 0.03); }
+
+.recordSectionChevron {
+  font-size: 0.70rem;
+  color: var(--muted);
+  transition: transform var(--dur-2) var(--ease-glide);
+}
+
+[data-theme="dark"] .recordSectionChevron { color: var(--text-tertiary); }
+
+.recordSectionBadge {
+  padding: 1px 6px;
+  border-radius: 999px;
+  background: var(--canvas);
+  color: var(--muted);
+  font-size: 0.60rem;
+  font-weight: 700;
+  border: 1px solid var(--line);
+}
+
+[data-theme="dark"] .recordSectionBadge {
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--text-tertiary);
+  border-color: var(--border);
+}
+
+.recordSectionBody {
+  max-height: 0;
+  overflow: hidden;
+  transition: max-height var(--dur-3) var(--ease-glide);
+}
+
+.recordSectionBodyOpen {
+  max-height: 600px;
+  padding: 0 16px 12px;
+}
+
+/* ─── Timeline ─── */
+.recordTimeGrid {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.recordTimeRow {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.78rem;
+}
+
+.recordTimeRow span { color: var(--muted); }
+[data-theme="dark"] .recordTimeRow span { color: var(--text-tertiary); }
+.recordTimeRow strong { color: var(--ink); font-weight: 600; }
+[data-theme="dark"] .recordTimeRow strong { color: var(--text); }
+
+/* ─── Facts ─── */
+.recordFactGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+  gap: 6px;
+}
+
+.recordFactTile {
+  padding: 8px 10px;
+  border-radius: 8px;
+  border: 1px solid var(--line);
+  background: var(--paper);
+}
+
+[data-theme="dark"] .recordFactTile {
+  background: var(--bg-card);
+  border-color: var(--border);
+}
+
+.recordFactLabel {
+  color: var(--muted);
+  font-size: 0.60rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin-bottom: 2px;
+}
+
+[data-theme="dark"] .recordFactLabel { color: var(--text-tertiary); }
+
+.recordFactValue {
+  color: var(--ink);
+  font-size: 0.78rem;
+  font-weight: 600;
+}
+
+[data-theme="dark"] .recordFactValue { color: var(--text); }
+
+/* ─── Detail list ─── */
+.recordDetailList {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.recordDetailRow {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.78rem;
+  padding: 2px 0;
+}
+
+.recordDetailRow span { color: var(--muted); }
+[data-theme="dark"] .recordDetailRow span { color: var(--text-tertiary); }
+.recordDetailRow strong { color: var(--ink); font-weight: 600; text-align: right; }
+[data-theme="dark"] .recordDetailRow strong { color: var(--text); }
+
+/* ─── Notice ─── */
+.recordNotice {
+  color: var(--ink);
+  font-size: 0.82rem;
+  line-height: 1.55;
+  padding: 4px 0;
+}
+
+[data-theme="dark"] .recordNotice { color: var(--text-secondary); }
+
+/* ─── Shared badge/priority (also imported from shared.module.css normally) ─── */
+.moduleDetailPriority {
+  display: inline-flex;
+  padding: 3px 8px;
+  border-radius: 6px;
+  font-size: 0.62rem;
+  font-weight: 700;
+  background: var(--canvas);
+  color: var(--muted);
+}
+
+[data-theme="dark"] .moduleDetailPriority {
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--text-tertiary);
+}
