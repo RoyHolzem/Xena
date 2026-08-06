@@ -42,51 +42,41 @@ export function BootScreen({ bootState, steps, progress, onStart, assistantName 
 
   const headline = useMemo(() => {
     if (isIdle) return 'Human judgment. Agentic execution.';
-    if (isError) return 'The agent channel needs attention.';
-    if (elapsed > 8) return 'The serverless runtime is still warming.';
-    return 'Bringing Xena online.';
+    if (isError) return 'Something went wrong starting up.';
+    if (elapsed > 8) return 'Still warming up — serverless runtime can take a moment.';
+    return 'Starting Xena.';
   }, [elapsed, isError, isIdle]);
 
   return (
     <main className={styles.bootScreen}>
-      <div className={styles.cockpitGhost} aria-hidden="true">
-        <span className={styles.ghostNav} />
-        <span className={styles.ghostRun} />
-        <span className={styles.ghostChat} />
-        <span className={styles.ghostArtifact} />
-      </div>
-
       <section className={styles.bootSurface} aria-label={isBooting ? 'Starting Xena' : undefined}>
         <div className={styles.bootBrand}>
-          <XenaLogo size={35} withWordmark={false} />
-          <span>XENA</span>
-          <i>Operations cockpit</i>
+          <XenaLogo size={32} withWordmark={false} />
+          <span>Xena</span>
+          <i>Operations</i>
         </div>
 
         <div className={styles.bootLayout}>
           <div className={styles.bootHero}>
             <div className={cn(styles.ignitionMark, isBooting && styles.ignitionMarkActive, isError && styles.ignitionMarkError)}>
-              <span className={styles.ignitionOrbitOne} />
-              <span className={styles.ignitionOrbitTwo} />
-              <span className={styles.ignitionAxis} />
-              <div className={styles.ignitionCore}><XenaLogo size={84} withWordmark={false} /></div>
+              <div className={styles.ignitionCore}><XenaLogo size={56} withWordmark={false} /></div>
             </div>
 
             <span className={styles.bootEyebrow}>
-              {isIdle ? 'Secure agent ignition' : isError ? 'Startup interrupted' : `Stage ${Math.min(completed + 1, steps.length)} of ${steps.length}`}
+              {isIdle ? 'Ready to start' : isError ? 'Startup failed' : `Step ${Math.min(completed + 1, steps.length)} of ${steps.length}`}
             </span>
             <h1>{headline}</h1>
             <p>
               {isIdle
-                ? 'Start the secured serverless control plane and connect Xena to company operations.'
+                ? 'Connect Xena to your operations and start working with the AI agent.'
                 : isError
-                  ? 'The completed stages are preserved below. Retry the secured startup sequence when ready.'
-                  : activeStep?.detail || activeStep?.label || 'Establishing the trusted operations channel.'}
+                  ? 'Completed steps are saved below. You can retry when ready.'
+                  : activeStep?.detail || activeStep?.label || 'Connecting to the operations workspace.'}
             </p>
 
             {isIdle && (
               <button type="button" className={styles.startButton} onClick={onStart}>
-                <span>Start agent</span>
+                <span>Get started</span>
                 <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m8 5 9 7-9 7V5Z" /></svg>
               </button>
             )}
@@ -94,14 +84,14 @@ export function BootScreen({ bootState, steps, progress, onStart, assistantName 
             {isBooting && (
               <div className={styles.elapsedRow} role="status" aria-live="polite">
                 <span className={styles.elapsedSignal} />
-                <span>{activeStep?.label || 'Finalizing workspace'}</span>
+                <span>{activeStep?.label || 'Finishing up'}</span>
                 <time>{formatElapsed(elapsed)}</time>
               </div>
             )}
 
             {isError && (
               <button type="button" className={styles.retryButton} onClick={onStart}>
-                Retry ignition
+                Try again
                 <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 7v5h-5M19 12a7 7 0 1 0-2 5" /></svg>
               </button>
             )}
@@ -109,8 +99,8 @@ export function BootScreen({ bootState, steps, progress, onStart, assistantName 
 
           <div className={styles.stagePanel}>
             <div className={styles.stagePanelHeader}>
-              <div><span>Startup sequence</span><strong>{isIdle ? 'Ready to initiate' : isError ? `${failed} stage failed` : `${completed}/${steps.length} secured`}</strong></div>
-              <span className={styles.stagePercent}>{isIdle ? 'Standby' : `${stageProgress}%`}</span>
+              <div><span>Setup progress</span><strong>{isIdle ? 'Ready' : isError ? `${failed} step failed` : `${completed}/${steps.length} complete`}</strong></div>
+              <span className={styles.stagePercent}>{isIdle ? '—' : `${stageProgress}%`}</span>
             </div>
 
             <div className={styles.progressTrack} aria-hidden="true">
@@ -120,28 +110,27 @@ export function BootScreen({ bootState, steps, progress, onStart, assistantName 
             <div className={styles.stageList}>
               {steps.map((step, index) => (
                 <div key={step.label} className={cn(styles.stage, styles[`stage_${step.status}`])}>
-                  <span className={styles.stageIndex}>{String(index + 1).padStart(2, '0')}</span>
+                  <span className={styles.stageIndex}>{index + 1}</span>
                   <span className={styles.stageState}><i /></span>
                   <div className={styles.stageCopy}>
                     <strong>{step.label}</strong>
-                    <small>{step.detail || (step.status === 'running' ? 'Secure handshake in progress' : step.status === 'pending' ? 'Awaiting previous stage' : step.status)}</small>
+                    <small>{step.detail || (step.status === 'running' ? 'In progress' : step.status === 'pending' ? 'Waiting' : step.status)}</small>
                   </div>
-                  <time>{step.ms != null ? `${step.ms}ms` : step.status === 'running' ? 'live' : ''}</time>
+                  <time>{step.ms != null ? `${step.ms}ms` : step.status === 'running' ? '...' : ''}</time>
                 </div>
               ))}
             </div>
 
             <footer className={styles.stageFooter}>
-              <span><i /> Cognito session</span>
-              <span><i /> IAM scoped</span>
-              <span><i /> Encrypted stream</span>
+              <span><i /> Authenticated</span>
+              <span><i /> eu-central-1</span>
             </footer>
           </div>
         </div>
 
         <div className={styles.bootMeta}>
-          <span>Serverless runtime · eu-central-1</span>
-          <span>Human-controlled operations</span>
+          <span>Serverless · eu-central-1</span>
+          <span>Human-controlled</span>
         </div>
       </section>
     </main>

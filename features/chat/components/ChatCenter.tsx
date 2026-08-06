@@ -102,8 +102,8 @@ export function ChatCenter({
             <img src="/favicon.png" alt="" width={27} height={27} />
           </div>
           <div>
-            <span className={styles.channelEyebrow}>Human + AI operations</span>
-            <strong className={styles.channelTitle}>{assistantName} channel</strong>
+            <span className={styles.channelEyebrow}>AI operations assistant</span>
+            <strong className={styles.channelTitle}>{assistantName}</strong>
           </div>
         </div>
         <div className={cn(styles.channelStatus, styles[`channelStatus_${state.tone}`])}>
@@ -118,10 +118,10 @@ export function ChatCenter({
             <div className={styles.emptySignal} aria-hidden="true">
               <span /><span /><span />
             </div>
-            <span className={styles.emptyEyebrow}>Operational intent</span>
+            <span className={styles.emptyEyebrow}>Get started</span>
             <h2>What needs attention?</h2>
             <p>
-              Ask naturally. Xena will use approved skills and company data, then build the operational context here as it works.
+              Ask naturally and Xena will use approved skills and company data to help with operations.
             </p>
             <div className={styles.starterGrid}>
               {STARTERS.map((starter) => (
@@ -229,8 +229,8 @@ export function ChatCenter({
           </div>
         </div>
         <div className={styles.composerMeta}>
-          <span>{voiceActive ? state.label : 'Enter to send · Shift + Enter for a new line'}</span>
-          <span className={styles.composerTrust}>Human-controlled execution</span>
+          <span>{voiceActive ? state.label : 'Enter to send · Shift+Enter for new line'}</span>
+          <span className={styles.composerTrust}>Human-controlled</span>
         </div>
       </form>
     </section>

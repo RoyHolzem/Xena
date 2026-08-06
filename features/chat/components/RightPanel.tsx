@@ -28,15 +28,15 @@ const VIEW_LABEL: Record<TelecomView, string> = {
 
 export function RightPanel({ visible, selectedRecord, activeView, loading, error, loadedAt, searchResults, onSelectSearchResult, onOpenModule }: RightPanelProps) {
   return (
-    <aside className={cn(styles.sidePanel, visible && styles.panelVisible)} aria-label="Artifact workbench">
+    <aside className={cn(styles.sidePanel, visible && styles.panelVisible)} aria-label="Record details">
       <header className={styles.workbenchHeader}>
         <div>
-          <span className={styles.workbenchEyebrow}>Adaptive surface</span>
-          <strong>Artifact workbench</strong>
+          <span className={styles.workbenchEyebrow}>Details</span>
+          <strong>{selectedRecord ? VIEW_LABEL[activeView] : 'No record selected'}</strong>
         </div>
         <div className={styles.workbenchState}>
           <span className={cn(styles.workbenchStateDot, loading && styles.workbenchStateLoading)} />
-          {loading ? 'Retrieving' : searchResults ? `${searchResults.results.length} found` : selectedRecord ? 'Hydrated' : 'Standby'}
+          {loading ? 'Loading' : searchResults ? `${searchResults.results.length} found` : selectedRecord ? 'Loaded' : 'Ready'}
         </div>
       </header>
 
@@ -69,9 +69,9 @@ function SearchArtifact({ results, onSelect }: { results: NonNullable<SearchResu
   return (
     <div className={styles.searchArtifact}>
       <div className={styles.searchArtifactIntro}>
-        <span>Search result artifact</span>
-        <h2>{results.results.length} {entity} records matched</h2>
-        <p>Xena returned structured company records. Select one to hydrate the full operational artifact.</p>
+          <span>Search results</span>
+          <h2>{results.results.length} {entity} records found</h2>
+          <p>Select a record to view full details.</p>
       </div>
       <div className={styles.searchResultList}>
         {results.results.map((result, index) => (
@@ -89,7 +89,7 @@ function SearchArtifact({ results, onSelect }: { results: NonNullable<SearchResu
           </button>
         ))}
       </div>
-      <footer className={styles.searchArtifactFooter}><span /> Structured UI · verified company data</footer>
+      <footer className={styles.searchArtifactFooter}><span /> Company data</footer>
     </div>
   );
 }
@@ -104,11 +104,11 @@ function WorkbenchStandby() {
         <span className={styles.emptyLineTwo} />
         <span className={styles.emptyNodeTertiary} />
       </div>
-      <span className={styles.emptyEyebrow}>Context-aware workspace</span>
-      <h2>Artifacts appear as Xena works.</h2>
-      <p>Records, search results, approvals and action receipts hydrate here without interrupting the conversation.</p>
+      <span className={styles.emptyEyebrow}>Record details</span>
+      <h2>Records appear here.</h2>
+      <p>When you select or search for a record, its details show up here without leaving the conversation.</p>
       <div className={styles.emptyCapabilities}>
-        <span>Company data</span><span>Human control</span><span>Verified actions</span>
+        <span>Incidents</span><span>Events</span><span>Maintenance</span>
       </div>
     </div>
   );
@@ -116,13 +116,13 @@ function WorkbenchStandby() {
 
 function ArtifactSkeleton() {
   return (
-    <div className={styles.skeletonWrap} role="status" aria-label="Retrieving operational artifact">
+    <div className={styles.skeletonWrap} role="status" aria-label="Loading record">
       <div className={styles.skeletonSignal}><span /></div>
       <div className={styles.skeletonLineShort} />
       <div className={styles.skeletonLineWide} />
       <div className={styles.skeletonLineMedium} />
       <div className={styles.skeletonGrid}><span /><span /><span /><span /></div>
-      <div className={styles.skeletonStatus}>Retrieving company context…</div>
+      <div className={styles.skeletonStatus}>Loading…</div>
     </div>
   );
 }
@@ -144,10 +144,10 @@ function RecordDossier({
     <div className={styles.detailWrap}>
       <section className={cn(styles.detailHero, styles[`toneRow_${sevTone}`])}>
         <div className={styles.artifactLiveRow}>
-          <span><i /> Live {VIEW_LABEL[activeView]} artifact</span>
+          <span><i /> {VIEW_LABEL[activeView]}</span>
           {onOpenModule && (
             <button type="button" onClick={() => onOpenModule(activeView)}>
-              Open workspace
+              Open in workspace
               <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 18 6-6-6-6" /></svg>
             </button>
           )}
@@ -169,7 +169,7 @@ function RecordDossier({
         </div>
       </section>
 
-      <ExpandSection title="Operational signal" count={record.highlights.length} defaultOpen>
+      <ExpandSection title="Details" count={record.highlights.length} defaultOpen>
         <div className={styles.factGrid}>
           {record.highlights.map((item) => (
             <div key={item.label} className={styles.factTile}>
@@ -198,8 +198,7 @@ function RecordDossier({
       )}
 
       <footer className={styles.provenanceFooter}>
-        <div><span /> DynamoDB record</div>
-        <time>{loadedAt ? `Fetched ${formatDateTime(loadedAt)}` : 'Current session'}</time>
+        <div><span /> {loadedAt ? formatDateTime(loadedAt) : 'Current session'}</div>
       </footer>
     </div>
   );

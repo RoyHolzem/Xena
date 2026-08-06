@@ -58,8 +58,8 @@ export function TopNav({ mode, setMode, ghStatus, ghCommit, models, selectedMode
     <nav className={styles.topNav} aria-label="Xena workspace navigation">
       <div className={styles.brandZone}>
         <div className={styles.brandMark}><XenaLogo size={31} withWordmark={false} /></div>
-        <span className={styles.brandWord}>XENA</span>
-        <span className={styles.environment}>Operations cockpit</span>
+        <span className={styles.brandWord}>Xena</span>
+        <span className={styles.environment}>Operations</span>
       </div>
 
       <div className={styles.navItems}>
@@ -107,7 +107,7 @@ export function TopNav({ mode, setMode, ghStatus, ghCommit, models, selectedMode
             </div>
 
             <button type="button" className={styles.themeButton} onClick={onToggleTheme}>
-              <span>{theme === 'dark' ? 'Dark cockpit' : 'Light cockpit'}</span>
+              <span>{theme === 'dark' ? 'Dark mode' : 'Light mode'}</span>
               <i className={cn(theme === 'light' && styles.themeToggleLight)}><b /></i>
             </button>
           </div>
