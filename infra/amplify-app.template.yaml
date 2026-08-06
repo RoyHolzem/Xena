@@ -172,10 +172,12 @@ Resources:
         Statement:
           - Effect: Allow
             Principal:
-              Service: amplify.amazonaws.com
+              Service: lambda.amazonaws.com
             Action: 'sts:AssumeRole'
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
       Policies:
-        - PolicyName: AmplifySSRPermissions
+        - PolicyName: XenaSSRDataAccess
           PolicyDocument:
             Version: '2012-10-17'
             Statement:
@@ -423,7 +425,7 @@ Resources:
       Repository: !Ref RepositoryUrl
       AccessToken: !Ref GitHubAccessToken
       Platform: WEB_COMPUTE
-      IAMServiceRole: !GetAtt AmplifyExecutionRole.Arn
+      ComputeRoleArn: !GetAtt AmplifyExecutionRole.Arn
       BuildSpec: |
         version: 1
         frontend:
