@@ -45,6 +45,7 @@ The reusable `XenaLogo` component is the source of truth for brand marks.
 The landing page must remain focused, minimal, and product-led:
 
 - Keep the overall page white, calm, and enterprise-oriented.
+- Keep the landing experience inside the viewport with persistent, visible navigation. Its four menu-switched views are Overview, Live workflow, Architecture, and Trust model; do not replace them with a long stack of scrolling sections.
 - Lead with human operators and AI agents working as one.
 - Explain that Xena operates on the company's own data, systems, and workflows.
 - Keep the dark `app.xena.lu` browser showcase as the primary visual proof.
@@ -52,6 +53,15 @@ The landing page must remain focused, minimal, and product-led:
 - Supporting content should be limited to the essential platform model and a clear path into authentication.
 - Avoid invented performance metrics, generic feature-card filler, and claims that cannot be substantiated.
 - Preserve responsive behavior so the showcase remains readable on phones and tablets.
+- Use Instrument Sans for expressive product typography and JetBrains Mono for technical labels and live-system metadata.
+
+## Architecture presentation
+
+- Present the Xena application and data plane accurately as managed and serverless; describe OpenClaw as a separate, replaceable gateway island rather than pretending the Lightsail component is serverless.
+- Explain that agent context is transient while operational records remain in managed, access-controlled stores. Do not claim that all data at rest is absent.
+- Describe AWS Secrets Manager as encrypted secret storage, not hashing. Hashes cannot supply recoverable runtime credentials.
+- Preserve the selectable Delivery, Live runtime, Agent island, and Voice loop layers, animated packet flow, component detail panel, and dedicated compact mobile representation.
+- Never claim certifications or compliance outcomes that are not substantiated. Explain the architectural controls and reduced finding surface instead.
 
 ## Auth and boot loading
 
