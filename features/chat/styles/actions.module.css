@@ -1,26 +1,35 @@
-.agentActionsPanel { min-width: 0; min-height: 0; display: flex; flex-direction: column; overflow: hidden; border: 1px solid var(--border); border-radius: 28px; background: color-mix(in srgb, var(--bg-card) 92%, transparent); box-shadow: 0 26px 70px var(--shadow-sm); backdrop-filter: blur(20px); }
-.agentActionsHeader { display: flex; align-items: center; gap: 9px; padding: 14px 16px; border-bottom: 1px solid var(--border); }
-.agentActionsDot { width: 6px; height: 6px; border-radius: 999px; background: var(--green); box-shadow: 0 0 8px var(--green-glow); }
-.agentActionsTitle { flex: 1; color: var(--text-tertiary); font-size: .68rem; font-weight: 900; letter-spacing: .09em; text-transform: uppercase; }
-.agentActionsCount { background: rgba(7,153,235,.14); color: var(--accent); border: 1px solid rgba(7,153,235,.22); }
-.agentActionsList { flex: 1; min-height: 0; overflow: auto; display: flex; flex-direction: column; gap: 8px; padding: 10px; }
-.agentActionsEmpty { flex: 1; display: grid; place-items: center; align-content: center; gap: 10px; padding: 30px 16px; color: var(--text-tertiary); text-align: center; font-size: .82rem; line-height: 1.45; }
-.agentActionsEmptyIcon { opacity: .45; font-size: 1.6rem; }
-.agentActionEntry { display: grid; grid-template-columns: 28px minmax(0,1fr) auto; gap: 9px; padding: 10px; border: 1px solid var(--border); border-radius: 16px; background: var(--tint-surface); color: var(--text-secondary); animation: slideUp .2s ease both; }
-.agentActionClickable { cursor: pointer; }
-.agentActionClickable:hover { border-color: rgba(7,153,235,.28); background: rgba(7,153,235,.06); }
-.agentActionIcon { width: 28px; height: 28px; display: grid; place-items: center; border-radius: 10px; background: rgba(7,153,235,.13); color: var(--accent); font-size: .72rem; font-weight: 900; }
-.agentAction_running .agentActionIcon { background: rgba(255,176,32,.13); color: var(--amber); }
-.agentAction_done .agentActionIcon { background: rgba(0,230,138,.12); color: var(--green); }
-.agentAction_error .agentActionIcon { background: rgba(227,0,22,.15); color: var(--red); }
-.agentActionSpinner { width: 12px; height: 12px; border-radius: 999px; border: 2px solid currentColor; border-top-color: transparent; animation: spin .8s linear infinite; }
-.agentActionContent { min-width: 0; }
-.agentActionLabel { color: var(--text); font-size: .79rem; font-weight: 800; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.agentActionMeta, .agentActionTime, .agentActionDetail { color: var(--text-tertiary); font-size: .68rem; line-height: 1.4; }
-.agentActionDetail { margin-top: 3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.agentActionChevron { align-self: center; color: var(--text-tertiary); transition: transform .15s; }
-.agentActionExpanded .agentActionChevron { transform: rotate(90deg); }
-.agentActionJson { grid-column: 1 / -1; max-height: 220px; overflow: auto; padding: 10px; border-radius: 12px; background: rgba(0,0,0,.25); color: var(--text-secondary); font-size: .68rem; line-height: 1.45; white-space: pre-wrap; }
-@keyframes spin { to { transform: rotate(360deg); } }
-@keyframes slideUp { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
-@media (max-width:1100px){ .agentActionsPanel{ display:none; } }
+/* ═══ Actions panel — Agent activity log ═══ */
+
+.agentActions { display: flex; flex-direction: column; gap: 4px; }
+.agentActionsHeader {
+  display: flex; align-items: center; justify-content: space-between; gap: 8px;
+  padding: 6px 0; margin-bottom: 2px;
+}
+.agentActionsLabel { color: var(--text-tertiary); font-size: 0.72rem; font-weight: 500; }
+.agentActionsCount {
+  display: inline-flex; align-items: center; padding: 1px 7px;
+  border-radius: 4px; background: var(--accent-bg); color: var(--accent);
+  font-size: 0.62rem; font-weight: 600;
+}
+
+.agentAction {
+  display: grid; grid-template-columns: 28px 1fr auto; gap: 8px;
+  padding: 6px 8px; border-radius: 6px;
+  transition: background 150ms ease;
+}
+.agentAction:hover { background: var(--tint-surface); }
+
+.agentActionIcon {
+  width: 24px; height: 24px; display: grid; place-items: center;
+  border-radius: 6px; background: var(--tint-surface);
+}
+.agentAction_running .agentActionIcon { background: var(--amber-muted); color: var(--amber); }
+.agentAction_done .agentActionIcon { background: var(--green-muted); color: var(--green); }
+.agentAction_error .agentActionIcon { background: var(--red-muted); color: var(--red); }
+.agentActionIcon svg { width: 13px; height: 13px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+
+.agentActionCopy { min-width: 0; display: grid; gap: 1px; padding-top: 2px; }
+.agentActionCopy strong { color: var(--text-secondary); font-size: 0.72rem; font-weight: 600; }
+.agentActionCopy small { color: var(--text-tertiary); font-size: 0.62rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+.agentActionTime { color: var(--text-tertiary); font-size: 0.6rem; font-weight: 500; align-self: center; white-space: nowrap; }

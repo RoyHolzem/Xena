@@ -1,4 +1,5 @@
-/* Shared Xena 2026 primitives for chat feature modules. */
+/* ═══ Shared primitives ═══ */
+
 .sevBadge,
 .statusBadgeChip,
 .severityBadge,
@@ -6,63 +7,60 @@
 .moduleDetailPriority,
 .agentActionsCount,
 .modelFallbackBadge {
-  display: inline-flex;
-  align-items: center;
-  width: max-content;
-  min-width: 0;
-  border-radius: 999px;
-  padding: 0.25rem 0.55rem;
+  display: inline-flex; align-items: center;
+  width: max-content; min-width: 0;
+  border-radius: 4px;
+  padding: 2px 7px;
   font-size: 0.64rem;
-  font-weight: 800;
-  letter-spacing: 0.04em;
-  line-height: 1;
-  text-transform: uppercase;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  line-height: 1.4;
   white-space: nowrap;
 }
 
 .tone_critical,
 .tone_high,
-.tone_major { background: rgba(227, 0, 22, 0.15); color: var(--red); border: 1px solid rgba(227, 0, 22, 0.28); }
+.tone_major { background: var(--red-muted); color: var(--red); border: 1px solid var(--red-muted); }
 .tone_medium,
-.tone_minor { background: rgba(7, 153, 235, 0.14); color: var(--accent); border: 1px solid rgba(7, 153, 235, 0.26); }
+.tone_minor { background: var(--accent-bg); color: var(--accent); border: 1px solid var(--border-accent); }
 .tone_low,
-.tone_info { background: rgba(0, 230, 138, 0.12); color: var(--green); border: 1px solid rgba(0, 230, 138, 0.22); }
+.tone_info { background: var(--green-muted); color: var(--green); border: 1px solid var(--green-muted); }
 
 .stat_ok,
 .stat_resolved,
 .stat_closed,
 .stat_RESOLVED,
-.stat_CLOSED { background: rgba(0, 230, 138, 0.12); color: var(--green); border: 1px solid rgba(0, 230, 138, 0.22); }
+.stat_CLOSED { background: var(--green-muted); color: var(--green); border: 1px solid var(--green-muted); }
 .stat_warn,
 .stat_acknowledged,
 .stat_in_progress,
 .stat_ACKNOWLEDGED,
-.stat_IN_PROGRESS { background: rgba(255, 176, 32, 0.13); color: var(--amber); border: 1px solid rgba(255, 176, 32, 0.24); }
-.stat_muted { background: rgba(148, 163, 184, 0.12); color: var(--text-tertiary); border: 1px solid rgba(148, 163, 184, 0.2); }
+.stat_IN_PROGRESS { background: var(--amber-muted); color: var(--amber); border: 1px solid var(--amber-muted); }
+.stat_muted { background: var(--tint-hover-strong); color: var(--text-tertiary); border: 1px solid var(--border); }
 .stat_neutral,
 .stat_open,
-.stat_OPEN { background: rgba(7, 153, 235, 0.14); color: var(--accent); border: 1px solid rgba(7, 153, 235, 0.26); }
+.stat_OPEN { background: var(--accent-bg); color: var(--accent); border: 1px solid var(--border-accent); }
 
 .toneRow_critical,
 .toneRow_high,
-.toneRow_major { border-left: 4px solid var(--xena-red, #e30016); }
+.toneRow_major { border-left: 3px solid var(--red); }
 .toneRow_medium,
 .toneRow_minor,
-.toneRow_info { border-left: 4px solid var(--xena-blue, var(--accent)); }
-.toneRow_low { border-left: 4px solid var(--green); }
+.toneRow_info { border-left: 3px solid var(--accent); }
+.toneRow_low { border-left: 3px solid var(--green); }
 
 .tintBg_critical,
 .tintBg_high,
-.tintBg_major { background: linear-gradient(135deg, rgba(227, 0, 22, 0.13), var(--bg-elevated) 46%); }
+.tintBg_major { background: var(--red-muted); }
 .tintBg_medium,
 .tintBg_minor,
-.tintBg_info { background: linear-gradient(135deg, rgba(7, 153, 235, 0.13), var(--bg-elevated) 46%); }
-.tintBg_low { background: linear-gradient(135deg, rgba(0, 230, 138, 0.1), var(--bg-elevated) 46%); }
+.tintBg_info { background: var(--accent-bg); }
+.tintBg_low { background: var(--green-muted); }
 
 .panelSectionTitle {
   color: var(--text-tertiary);
-  font-size: 0.72rem;
-  font-weight: 800;
-  letter-spacing: 0.08em;
+  font-size: 0.7rem;
+  font-weight: 600;
   text-transform: uppercase;
+  letter-spacing: 0.04em;
 }

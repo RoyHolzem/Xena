@@ -1,63 +1,46 @@
+/* ═══ AgentRunStrip — Simple status bar ═══ */
+
 .runStrip {
-  min-height: 76px;
-  display: grid;
-  grid-template-columns: auto minmax(180px, .78fr) minmax(220px, 1.22fr) auto;
+  min-height: 56px;
+  display: flex;
   align-items: center;
-  gap: 16px;
-  padding: 12px 14px;
-  overflow: hidden;
-  position: relative;
+  gap: 14px;
+  padding: 10px 14px;
   border: 1px solid var(--border);
-  border-radius: 18px;
-  background: var(--bg-card);
-  box-shadow: 0 18px 44px var(--shadow-sm);
+  border-radius: 10px;
+  background: var(--bg-root);
+  position: relative;
+  overflow: hidden;
 }
 
-.runStrip::before {
-  content: '';
-  position: absolute;
-  inset: 0 auto 0 0;
-  width: 2px;
-  background: rgba(7,153,235,.45);
+.runStrip::before { display: none; }
+.runStripActive::before { display: none; }
+.runStripError::before { display: none; }
+
+.runSignal { width: 28px; height: 28px; display: grid; place-items: center; flex-shrink: 0; }
+.runSignalCore { width: 7px; height: 7px; border-radius: 50%; background: var(--accent); }
+.runSignalOrbit { display: none; }
+
+.runSummary { min-width: 0; display: grid; gap: 2px; flex: 1; }
+.runEyebrow { color: var(--text-tertiary); font-size: 0.68rem; font-weight: 500; }
+.runTitle { color: var(--text); font-size: 0.82rem; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+.runSteps { min-width: 0; display: flex; align-items: center; gap: 4px; overflow: hidden; flex-shrink: 0; }
+.runHint { color: var(--text-tertiary); font-size: 0.7rem; white-space: nowrap; }
+.runStep {
+  min-width: 0; max-width: 140px; display: inline-flex; align-items: center; gap: 6px;
+  padding: 5px 8px; border: 1px solid var(--border); border-radius: 6px;
+  background: var(--bg-root);
 }
-
-.runStripActive::before { background: linear-gradient(180deg, var(--accent), var(--xena-blue)); }
-.runStripError::before { background: var(--xena-red); }
-
-.runSignal { width: 38px; height: 38px; display: grid; place-items: center; position: relative; }
-.runSignalCore { width: 9px; height: 9px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 18px rgba(7,153,235,.75); }
-.runSignalOrbit { position: absolute; inset: 5px; border: 1px solid rgba(82,213,255,.38); border-top-color: transparent; border-radius: 50%; animation: runOrbit 1.6s linear infinite; }
-
-.runSummary { min-width: 0; display: grid; gap: 3px; }
-.runEyebrow { color: var(--accent); font: 700 .62rem/1.2 var(--font-mono, 'JetBrains Mono'), monospace; letter-spacing: .1em; text-transform: uppercase; }
-.runTitle { color: var(--text); font-size: .84rem; font-weight: 650; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-
-.runSteps { min-width: 0; display: flex; align-items: center; justify-content: flex-end; gap: 6px; overflow: hidden; }
-.runHint { color: var(--text-tertiary); font-size: .72rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.runStep { min-width: 0; max-width: 160px; display: inline-flex; align-items: center; gap: 7px; padding: 7px 9px; border: 1px solid var(--border-subtle); border-radius: 10px; background: var(--tint-surface); }
-.runStepState { width: 6px; height: 6px; flex: 0 0 auto; border-radius: 50%; background: var(--text-tertiary); }
-.runStep_running .runStepState { background: var(--amber); box-shadow: 0 0 10px rgba(255,190,61,.4); animation: stateBreath 1.25s ease-in-out infinite; }
+.runStepState { width: 5px; height: 5px; flex: 0 0 auto; border-radius: 50%; background: var(--text-tertiary); }
+.runStep_running .runStepState { background: var(--amber); animation: pulse 1.5s ease-in-out infinite; }
 .runStep_done .runStepState { background: var(--green); }
 .runStep_error .runStepState { background: var(--red); }
-.runStepLabel { color: var(--text-secondary); font-size: .68rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.runStepLabel { color: var(--text-secondary); font-size: 0.65rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
-.runTrust { display: flex; align-items: center; gap: 6px; color: var(--text-tertiary); font: 650 .6rem/1 var(--font-mono, 'JetBrains Mono'), monospace; text-transform: uppercase; letter-spacing: .06em; white-space: nowrap; }
-.runTrust svg { width: 14px; height: 14px; fill: none; stroke: var(--green); stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
+.runTrust { display: flex; align-items: center; gap: 5px; color: var(--text-tertiary); font-size: 0.65rem; font-weight: 500; white-space: nowrap; }
+.runTrust svg { width: 13px; height: 13px; fill: none; stroke: var(--green); stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
 
-@keyframes runOrbit { to { transform: rotate(360deg); } }
-@keyframes stateBreath { 50% { opacity: .4; transform: scale(.82); } }
-
-@media (max-width: 1180px) {
-  .runStrip { grid-template-columns: auto minmax(180px,1fr) minmax(180px,1fr); }
-  .runTrust { display: none; }
-}
-
-@media (max-width: 760px) {
-  .runStrip { min-height: 64px; grid-template-columns: auto minmax(0,1fr); gap: 10px; padding: 10px 12px; }
-  .runSignal { width: 32px; height: 32px; }
-  .runSteps { display: none; }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .runSignalOrbit, .runStep_running .runStepState { animation: none; }
-}
+@media (max-width: 1180px) { .runStrip { gap: 10px; } .runTrust { display: none; } }
+@media (max-width: 760px) { .runStrip { min-height: 48px; } .runSteps { display: none; } .runSignal { width: 24px; height: 24px; } }
+@media (prefers-reduced-motion: reduce) { .runStep_running .runStepState { animation: none; } }
