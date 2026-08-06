@@ -1,26 +1,455 @@
-.agentActionsPanel { min-width: 0; min-height: 0; display: flex; flex-direction: column; overflow: hidden; border: 1px solid var(--border); border-radius: 28px; background: color-mix(in srgb, var(--bg-card) 92%, transparent); box-shadow: 0 26px 70px rgba(0,0,0,.2); backdrop-filter: blur(20px); }
-.agentActionsHeader { display: flex; align-items: center; gap: 9px; padding: 14px 16px; border-bottom: 1px solid var(--border); }
-.agentActionsDot { width: 6px; height: 6px; border-radius: 999px; background: var(--green); box-shadow: 0 0 8px var(--green-glow); }
-.agentActionsTitle { flex: 1; color: var(--text-tertiary); font-size: .68rem; font-weight: 900; letter-spacing: .09em; text-transform: uppercase; }
-.agentActionsCount { background: rgba(7,153,235,.14); color: #62c5ff; border: 1px solid rgba(7,153,235,.22); }
-.agentActionsList { flex: 1; min-height: 0; overflow: auto; display: flex; flex-direction: column; gap: 8px; padding: 10px; }
-.agentActionsEmpty { flex: 1; display: grid; place-items: center; align-content: center; gap: 10px; padding: 30px 16px; color: var(--text-tertiary); text-align: center; font-size: .82rem; line-height: 1.45; }
-.agentActionsEmptyIcon { opacity: .45; font-size: 1.6rem; }
-.agentActionEntry { display: grid; grid-template-columns: 28px minmax(0,1fr) auto; gap: 9px; padding: 10px; border: 1px solid var(--border); border-radius: 16px; background: rgba(255,255,255,.025); color: var(--text-secondary); animation: slideUp .2s ease both; }
-.agentActionClickable { cursor: pointer; }
-.agentActionClickable:hover { border-color: rgba(7,153,235,.28); background: rgba(7,153,235,.06); }
-.agentActionIcon { width: 28px; height: 28px; display: grid; place-items: center; border-radius: 10px; background: rgba(7,153,235,.13); color: #62c5ff; font-size: .72rem; font-weight: 900; }
-.agentAction_running .agentActionIcon { background: rgba(255,176,32,.13); color: #ffd081; }
-.agentAction_done .agentActionIcon { background: rgba(0,230,138,.12); color: #2df2a3; }
-.agentAction_error .agentActionIcon { background: rgba(227,0,22,.15); color: #ff6b76; }
-.agentActionSpinner { width: 12px; height: 12px; border-radius: 999px; border: 2px solid currentColor; border-top-color: transparent; animation: spin .8s linear infinite; }
-.agentActionContent { min-width: 0; }
-.agentActionLabel { color: var(--text); font-size: .79rem; font-weight: 800; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.agentActionMeta, .agentActionTime, .agentActionDetail { color: var(--text-tertiary); font-size: .68rem; line-height: 1.4; }
-.agentActionDetail { margin-top: 3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.agentActionChevron { align-self: center; color: var(--text-tertiary); transition: transform .15s; }
-.agentActionExpanded .agentActionChevron { transform: rotate(90deg); }
-.agentActionJson { grid-column: 1 / -1; max-height: 220px; overflow: auto; padding: 10px; border-radius: 12px; background: rgba(0,0,0,.25); color: var(--text-secondary); font-size: .68rem; line-height: 1.45; white-space: pre-wrap; }
-@keyframes spin { to { transform: rotate(360deg); } }
-@keyframes slideUp { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
-@media (max-width:1100px){ .agentActionsPanel{ display:none; } }
+/* ═══════════════════════════════════════════════════════════════════
+   Agent Actions Panel — Left Sidebar
+   SaaS-grade polished panel (Linear / Vercel quality)
+
+   Tokens consumed from :root / [data-theme="dark"] globals.css:
+     --paper --canvas --ink --muted --line
+     --xena-blue --xena-red --xena-ink
+     --green --green-glow --green-muted --amber --amber-glow --red --red-glow
+     --bg-glass --bg-card --bg-surface --border --border-accent --border-focus
+     --text --text-secondary --text-tertiary
+     --shadow-1 … --shadow-4 --radius-sm --radius --radius-lg --radius-xl
+     --tint-hover --accent-muted --accent-bg
+     --ease-glide --ease-spring --dur-1 --dur-2 --dur-3 --dur-4
+   ═══════════════════════════════════════════════════════════════════ */
+
+/* ─── Panel Container ────────────────────────────────────────────── */
+.agentActionsPanel {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+  position: relative;
+  border-radius: var(--radius-xl);
+  background: var(--bg-glass);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow-3);
+  backdrop-filter: blur(24px) saturate(180%);
+  -webkit-backdrop-filter: blur(24px) saturate(180%);
+}
+
+/* ─── Header ─────────────────────────────────────────────────────── */
+.agentActionsHeader {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 18px;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+.agentActionsDot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--green);
+  box-shadow: 0 0 10px var(--green-glow);
+  flex-shrink: 0;
+  animation: agentPing 2s cubic-bezier(0, 0, 0.2, 1) infinite;
+}
+
+.agentActionsTitle {
+  flex: 1;
+  font-size: 0.65rem;
+  font-weight: 900;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-tertiary);
+  user-select: none;
+}
+
+.agentActionsCount {
+  font-size: 0.68rem;
+  font-weight: 700;
+  line-height: 1;
+  padding: 3px 10px;
+  border-radius: 999px;
+  background: var(--accent-muted);
+  color: var(--accent-bright);
+  border: 1px solid var(--border-accent);
+}
+
+/* ─── Scrollable List ────────────────────────────────────────────── */
+.agentActionsList {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 10px 10px 12px;
+  scroll-behavior: smooth;
+}
+
+/* ─── Empty State ────────────────────────────────────────────────── */
+.agentActionsEmpty {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 40px 16px;
+  color: var(--text-tertiary);
+  text-align: center;
+  font-size: 0.80rem;
+  line-height: 1.5;
+  user-select: none;
+}
+
+.agentActionsEmptyIcon {
+  font-size: 2rem;
+  opacity: 0.35;
+  animation: agentEmptyBob 3s ease-in-out infinite;
+}
+
+/* ─── Action Entry Card ──────────────────────────────────────────── */
+.agentActionEntry {
+  display: grid;
+  grid-template-columns: 28px minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: center;
+  padding: 10px 12px;
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  background: var(--bg-card);
+  color: var(--text-secondary);
+  position: relative;
+  overflow: hidden;
+  animation: agentSlideIn var(--dur-3) var(--ease-glide) both;
+  transition:
+    transform var(--dur-2) var(--ease-glide),
+    box-shadow var(--dur-2) var(--ease-glide),
+    border-color var(--dur-2) var(--ease-glide),
+    background var(--dur-2) var(--ease-glide);
+  will-change: transform;
+}
+
+/* ─── Status modifiers ───────────────────────────────────────────── */
+.agentAction_running {
+  border-color: var(--border-accent);
+}
+
+.agentAction_running::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    105deg,
+    transparent 0%,
+    transparent 38%,
+    rgba(7, 153, 235, 0.06) 42%,
+    rgba(7, 153, 235, 0.12) 46%,
+    rgba(7, 153, 235, 0.06) 50%,
+    transparent 54%,
+    transparent 100%
+  );
+  background-size: 200% 100%;
+  animation: agentShimmer 2s var(--ease-glide) infinite;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.agentAction_running .agentActionIcon,
+.agentAction_running .agentActionContent,
+.agentAction_running .agentActionMeta {
+  position: relative;
+  z-index: 1;
+}
+
+.agentAction_done {
+  background: var(--green-muted);
+  border-color: rgba(5, 150, 105, 0.18);
+}
+
+.agentAction_error {
+  border-color: var(--red);
+  animation: agentShake 0.5s var(--ease-glide);
+}
+
+/* ─── Clickable entry ────────────────────────────────────────────── */
+.agentActionClickable {
+  cursor: pointer;
+}
+
+.agentActionClickable:hover {
+  transform: translateY(-2px);
+  border-color: var(--border-focus);
+  box-shadow: var(--shadow-2), var(--shadow-glow);
+  background: var(--bg-card-hover, rgba(245, 247, 250, 0.98));
+}
+
+.agentActionClickable:active {
+  transform: translateY(0px);
+  transition: transform var(--dur-1) var(--ease-glide);
+}
+
+.agentActionClickable:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: var(--radius);
+}
+
+/* ─── Icon Cell ──────────────────────────────────────────────────── */
+.agentActionIcon {
+  width: 28px;
+  height: 28px;
+  display: grid;
+  place-items: center;
+  border-radius: 8px;
+  font-size: 0.75rem;
+  font-weight: 900;
+  flex-shrink: 0;
+  background: var(--accent-muted);
+  color: var(--accent-bright);
+  transition:
+    background var(--dur-2) var(--ease-glide),
+    color var(--dur-2) var(--ease-glide),
+    transform var(--dur-2) var(--ease-spring);
+}
+
+.agentAction_running .agentActionIcon {
+  background: var(--amber-muted);
+  color: var(--amber);
+}
+
+.agentAction_done .agentActionIcon {
+  background: var(--green-muted);
+  color: var(--green);
+  animation: agentDonePop 0.4s var(--ease-spring);
+}
+
+.agentAction_error .agentActionIcon {
+  background: var(--red-muted);
+  color: var(--red);
+}
+
+/* ─── Spinner ────────────────────────────────────────────────────── */
+.agentActionSpinner {
+  display: inline-block;
+  width: 13px;
+  height: 13px;
+  border-radius: 50%;
+  border: 2px solid currentColor;
+  border-top-color: transparent;
+  animation: agentSpin 0.7s linear infinite;
+}
+
+/* ─── Content ────────────────────────────────────────────────────── */
+.agentActionContent {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.agentActionLabel {
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  line-height: 1.3;
+}
+
+.agentActionDetail {
+  font-size: 0.68rem;
+  color: var(--text-tertiary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  line-height: 1.4;
+}
+
+/* ─── Meta Column ────────────────────────────────────────────────── */
+.agentActionMeta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+  font-size: 0.66rem;
+  color: var(--text-tertiary);
+  white-space: nowrap;
+}
+
+/* ─── Chevron ────────────────────────────────────────────────────── */
+.agentActionChevron {
+  display: inline-block;
+  font-size: 0.55rem;
+  color: var(--text-tertiary);
+  transition: transform var(--dur-2) var(--ease-glide);
+  line-height: 1;
+}
+
+/* ─── Expanded State ─────────────────────────────────────────────── */
+.agentActionExpanded {
+  display: grid;
+  grid-template-rows: 0fr;
+  transition: grid-template-rows var(--dur-3) var(--ease-glide);
+  margin-top: 2px;
+  overflow: hidden;
+}
+
+/* The expanded wrapper is toggled via JS rendering — the keyframe
+   approach below animates the pre-block reveal */
+.agentActionJson {
+  grid-column: 1 / -1;
+  max-height: 200px;
+  overflow: auto;
+  margin-top: 4px;
+  padding: 10px 12px;
+  border-radius: var(--radius-sm);
+  background: var(--bg-input);
+  border: 1px solid var(--border);
+  font-family: 'SF Mono', 'Fira Code', 'Cascadia Code', ui-monospace, monospace;
+  font-size: 0.66rem;
+  line-height: 1.5;
+  color: var(--text-secondary);
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   Keyframe Animations
+   ═══════════════════════════════════════════════════════════════════ */
+
+@keyframes agentPing {
+  0% {
+    transform: scale(1);
+    opacity: 1;
+    box-shadow: 0 0 0 0 var(--green-glow);
+  }
+  50% {
+    transform: scale(1.6);
+    opacity: 0.5;
+    box-shadow: 0 0 0 6px transparent;
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+    box-shadow: 0 0 0 0 transparent;
+  }
+}
+
+@keyframes agentSlideIn {
+  from {
+    opacity: 0;
+    transform: translateX(-12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes agentShimmer {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
+
+@keyframes agentShake {
+  0%, 100% {
+    transform: translateX(0);
+  }
+  10%, 50%, 90% {
+    transform: translateX(-3px);
+  }
+  30%, 70% {
+    transform: translateX(3px);
+  }
+}
+
+@keyframes agentDonePop {
+  0% {
+    transform: scale(1);
+  }
+  40% {
+    transform: scale(1.25);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+@keyframes agentSpin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes agentEmptyBob {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-4px);
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   Dark Theme Overrides
+   ═══════════════════════════════════════════════════════════════════ */
+
+[data-theme="dark"] .agentActionsPanel {
+  background: var(--bg-glass);
+  box-shadow: var(--shadow-4);
+}
+
+[data-theme="dark"] .agentActionsHeader {
+  border-bottom-color: var(--border);
+}
+
+[data-theme="dark"] .agentActionEntry {
+  background: var(--bg-card);
+  border-color: var(--border);
+}
+
+[data-theme="dark"] .agentAction_running::after {
+  background: linear-gradient(
+    105deg,
+    transparent 0%,
+    transparent 38%,
+    rgba(7, 153, 235, 0.08) 42%,
+    rgba(7, 153, 235, 0.16) 46%,
+    rgba(7, 153, 235, 0.08) 50%,
+    transparent 54%,
+    transparent 100%
+  );
+  background-size: 200% 100%;
+}
+
+[data-theme="dark"] .agentAction_done {
+  background: rgba(0, 230, 138, 0.08);
+  border-color: rgba(0, 230, 138, 0.18);
+}
+
+[data-theme="dark"] .agentActionClickable:hover {
+  background: var(--bg-card-hover, rgba(18, 26, 44, 0.95));
+}
+
+[data-theme="dark"] .agentAction_running {
+  border-color: rgba(7, 153, 235, 0.28);
+}
+
+[data-theme="dark"] .agentActionJson {
+  background: rgba(5, 8, 16, 0.85);
+  border-color: var(--border);
+  color: var(--text-secondary);
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   Responsive
+   ═══════════════════════════════════════════════════════════════════ */
+
+@media (max-width: 1100px) {
+  .agentActionsPanel {
+    display: none;
+  }
+}

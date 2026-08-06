@@ -36,7 +36,7 @@ export function ChatShell() {
   const [contextView, setContextView] = useState<TelecomView>('incidents');
   const [search] = useState('');
   const [selectedModel, setSelectedModel] = useState(DEFAULT_MODEL);
-  const [theme, setTheme] = useState<'dark' | 'light'>('dark');
+  const [theme, setTheme] = useState<'dark' | 'light'>('light');
 
   const actionLog = useActionLog();
 
@@ -50,6 +50,10 @@ export function ChatShell() {
       return next;
     });
   }, []);
+
+  useEffect(() => {
+    document.documentElement.setAttribute('data-theme', theme);
+  }, [theme]);
 
   const telecom = useTelecom(contextView, getAuthToken, search, {
     onContextViewChange: setContextView,
