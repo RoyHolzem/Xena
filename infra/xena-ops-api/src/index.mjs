@@ -180,6 +180,10 @@ function parseBody(event) {
   }
 }
 
+function isConditionalCheckFailed(err) {
+  return err?.name === 'ConditionalCheckFailedException';
+}
+
 async function createRecord(type, body) {
   if (!body) return { statusCode: 400, body: JSON.stringify({ ok: false, error: 'Invalid JSON body' }) };
 
@@ -205,7 +209,22 @@ async function createRecord(type, body) {
   // Ensure startTime is set
   if (!item.startTime) item.startTime = now;
 
-  await ddb.send(new PutCommand({ TableName: TABLES[type], Item: item }));
+  try {
+    await ddb.send(new PutCommand({
+      TableName: TABLES[type],
+      Item: item,
+      ConditionExpression: 'attribute_not_exists(recordId)',
+    }));
+  } catch (err) {
+    if (isConditionalCheckFailed(err)) {
+      return {
+        statusCode: 409,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ok: false, error: `Record ${recordId} already exists` }),
+      };
+    }
+    throw err;
+  }
 
   return {
     statusCode: 201,
