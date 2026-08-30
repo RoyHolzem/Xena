@@ -8,7 +8,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test:telecom-critical-regressions": "node scripts/test-telecom-critical-regressions.mjs"
   },
   "dependencies": {
     "@aws-amplify/ui-react": "^6.6.2",
