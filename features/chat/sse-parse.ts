@@ -18,12 +18,13 @@ export type ParsedSseLine =
   | { kind: 'skip' };
 
 function isTelecomView(value: unknown): value is TelecomView {
-  return value === 'incidents' || value === 'events' || value === 'planned-works';
+  return value === 'incidents' || value === 'events' || value === 'planned-works' || value === 'orders';
 }
 
 function telecomFocusToOpenAction(view: TelecomView, recordId: string): XenaUiAction {
   if (view === 'incidents') return { type: 'OPEN_INCIDENT', recordId };
   if (view === 'events') return { type: 'OPEN_EVENT', recordId };
+  if (view === 'orders') return { type: 'OPEN_ORDER', recordId };
   return { type: 'OPEN_PLANNED_WORK', recordId };
 }
 

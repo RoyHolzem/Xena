@@ -354,6 +354,24 @@ function sortRecords(view: TelecomView, items: TelecomRecord[]) {
   });
 }
 
+async function scanAllItems(tableName: string): Promise<RawItem[]> {
+  const items: RawItem[] = [];
+  let ExclusiveStartKey: Record<string, unknown> | undefined;
+
+  do {
+    const response = await client.send(
+      new ScanCommand({
+        TableName: tableName,
+        ExclusiveStartKey,
+      })
+    );
+    items.push(...((response.Items || []) as RawItem[]));
+    ExclusiveStartKey = response.LastEvaluatedKey;
+  } while (ExclusiveStartKey);
+
+  return items;
+}
+
 export async function GET(request: NextRequest) {
   const authHeader = request.headers.get('Authorization');
   const user = await verifyToken(authHeader);
@@ -369,14 +387,8 @@ export async function GET(request: NextRequest) {
   const recordIdParam = request.nextUrl.searchParams.get('recordId')?.trim() || '';
 
   try {
-    const response = await client.send(
-      new ScanCommand({
-        TableName: tableNames[view],
-        Limit: 200,
-      })
-    );
-
-    let items = sortRecords(view, (response.Items || []).map((item) => normalize(view, item as RawItem)));
+    const scannedItems = await scanAllItems(tableNames[view]);
+    let items = sortRecords(view, scannedItems.map((item) => normalize(view, item)));
 
     if (recordIdParam) {
       try {
