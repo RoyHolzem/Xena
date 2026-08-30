@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState, useCallback } from 'react';
+import { useEffect, useMemo, useRef, useState, useCallback } from 'react';
 import type { TelecomRecord, TelecomView } from '@/lib/types';
 import { useTelecom } from '../hooks/useTelecom';
 import { useTelecomMutation } from '../hooks/useTelecomMutation';
@@ -71,14 +71,16 @@ type StatusFilter = 'all' | 'active' | 'closed' | string;
 
 interface ModuleDashboardProps {
   view: TelecomView;
+  initialRecordId?: string | null;
   onBackToXena: () => void;
 }
 
-export function ModuleDashboard({ view, onBackToXena }: ModuleDashboardProps) {
+export function ModuleDashboard({ view, initialRecordId, onBackToXena }: ModuleDashboardProps) {
   const getAuthToken = useAuthToken();
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const appliedInitialRecordKey = useRef<string | null>(null);
 
   const {
     records,
@@ -94,6 +96,17 @@ export function ModuleDashboard({ view, onBackToXena }: ModuleDashboardProps) {
   });
 
   const { updateRecord, createRecord } = useTelecomMutation();
+
+  useEffect(() => {
+    if (!initialRecordId) return;
+
+    const targetKey = `${view}:${initialRecordId}`;
+    if (appliedInitialRecordKey.current === targetKey) return;
+    appliedInitialRecordKey.current = targetKey;
+
+    setSelectedRecordIds((prev) => ({ ...prev, [view]: initialRecordId }));
+    void loadTelecomView(view, true, initialRecordId);
+  }, [initialRecordId, view, setSelectedRecordIds, loadTelecomView]);
 
   const meta = VIEW_META.find((v) => v.key === view);
   const statuses = STATUS_CONFIG[view];
