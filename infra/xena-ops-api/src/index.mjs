@@ -1,7 +1,11 @@
+import { timingSafeEqual } from 'node:crypto';
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
 import { DynamoDBDocumentClient, ScanCommand, GetCommand, PutCommand, UpdateCommand } from '@aws-sdk/lib-dynamodb';
 
 const ddb = DynamoDBDocumentClient.from(new DynamoDBClient({ region: process.env.AWS_REGION || 'eu-central-1' }));
+const MAX_CREATE_ID_ATTEMPTS = 5;
+const JSON_HEADERS = { 'Content-Type': 'application/json' };
+const OPS_API_TOKEN = (process.env.XENA_OPS_API_TOKEN || '').trim();
 
 const TABLES = {
   incidents: process.env.INCIDENTS_TABLE || 'roy-telecom-incidents-lux',
@@ -80,6 +84,48 @@ const EDITABLE_FIELDS = {
 
 // Fields required for creation
 const REQUIRED_CREATE_FIELDS = ['title', 'status', 'severity'];
+
+function jsonResponse(statusCode, body) {
+  return { statusCode, headers: JSON_HEADERS, body: JSON.stringify(body) };
+}
+
+function getHeader(event, name) {
+  const headers = event.headers || {};
+  const target = name.toLowerCase();
+  for (const [key, value] of Object.entries(headers)) {
+    if (key.toLowerCase() === target) return String(value || '');
+  }
+  return '';
+}
+
+function safeEqual(left, right) {
+  const leftBuffer = Buffer.from(left);
+  const rightBuffer = Buffer.from(right);
+  return leftBuffer.length === rightBuffer.length && timingSafeEqual(leftBuffer, rightBuffer);
+}
+
+function authorizeRequest(event) {
+  if (!OPS_API_TOKEN) {
+    return jsonResponse(500, { ok: false, error: 'Operations API token is not configured' });
+  }
+
+  const authHeader = getHeader(event, 'authorization').trim();
+  const prefix = 'Bearer ';
+  if (!authHeader.startsWith(prefix)) {
+    return jsonResponse(401, { ok: false, error: 'Unauthorized' });
+  }
+
+  const token = authHeader.slice(prefix.length).trim();
+  if (!safeEqual(token, OPS_API_TOKEN)) {
+    return jsonResponse(401, { ok: false, error: 'Unauthorized' });
+  }
+
+  return null;
+}
+
+function isConditionalCheckFailed(error) {
+  return error?.name === 'ConditionalCheckFailedException';
+}
 
 function toIso(v) { return (typeof v === 'string' && v) ? v : new Date(0).toISOString(); }
 
@@ -192,26 +238,49 @@ async function createRecord(type, body) {
     return { statusCode: 400, body: JSON.stringify({ ok: false, error: `Invalid status '${body.status}'. Valid: ${VALID_STATUSES[type].join(', ')}` }) };
   }
 
-  const now = new Date().toISOString();
-  const recordId = body.recordId || generateRecordId(type);
+  if (body.recordId !== undefined && body.recordId !== null && typeof body.recordId !== 'string') {
+    return { statusCode: 400, body: JSON.stringify({ ok: false, error: 'recordId must be a string' }) };
+  }
 
+  const now = new Date().toISOString();
+  const requestedRecordId = typeof body.recordId === 'string' ? body.recordId.trim() : '';
   const allowed = EDITABLE_FIELDS[type] || [];
-  const item = { recordId, createdAt: now, updatedAt: now, startTime: now };
-  for (const field of allowed) {
-    if (body[field] !== undefined && body[field] !== null) {
-      item[field] = body[field];
+
+  for (let attempt = 0; attempt < MAX_CREATE_ID_ATTEMPTS; attempt++) {
+    const recordId = requestedRecordId || generateRecordId(type);
+    const item = { recordId, createdAt: now, updatedAt: now, startTime: now };
+    for (const field of allowed) {
+      if (body[field] !== undefined && body[field] !== null) {
+        item[field] = body[field];
+      }
+    }
+    // Ensure startTime is set
+    if (!item.startTime) item.startTime = now;
+
+    try {
+      await ddb.send(new PutCommand({
+        TableName: TABLES[type],
+        Item: item,
+        ConditionExpression: 'attribute_not_exists(recordId)',
+      }));
+
+      return {
+        statusCode: 201,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ok: true, recordId, item: normalize(item) }),
+      };
+    } catch (err) {
+      if (isConditionalCheckFailed(err)) {
+        if (requestedRecordId || attempt === MAX_CREATE_ID_ATTEMPTS - 1) {
+          return { statusCode: 409, body: JSON.stringify({ ok: false, error: `Record ${recordId} already exists` }) };
+        }
+        continue;
+      }
+      throw err;
     }
   }
-  // Ensure startTime is set
-  if (!item.startTime) item.startTime = now;
 
-  await ddb.send(new PutCommand({ TableName: TABLES[type], Item: item }));
-
-  return {
-    statusCode: 201,
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ ok: true, recordId, item: normalize(item) }),
-  };
+  return { statusCode: 409, body: JSON.stringify({ ok: false, error: 'Failed to allocate unique recordId' }) };
 }
 
 async function updateRecord(type, recordId, body) {
@@ -301,6 +370,9 @@ function matchPostRoute(route) {
 }
 
 export const handler = async (event) => {
+  const authError = authorizeRequest(event);
+  if (authError) return authError;
+
   const route = `${event.requestContext?.http?.method || 'GET'} ${event.rawPath || event.path || '/'}`;
 
   // GET routes
@@ -326,22 +398,28 @@ export const handler = async (event) => {
   // POST routes (create)
   const postType = matchPostRoute(route);
   if (postType) {
-    const body = parseBody(event);
-    const result = await createRecord(postType, body);
-    return { ...result, headers: { 'Content-Type': 'application/json' } };
+    try {
+      const body = parseBody(event);
+      const result = await createRecord(postType, body);
+      return { ...result, headers: JSON_HEADERS };
+    } catch (err) {
+      console.error('xena-ops-api error:', err);
+      return jsonResponse(500, { ok: false, error: err instanceof Error ? err.message : 'Internal server error' });
+    }
   }
 
   // PUT routes (update)
   const putMatch = matchPutRoute(route);
   if (putMatch) {
-    const body = parseBody(event);
-    const result = await updateRecord(putMatch.type, putMatch.recordId, body);
-    return { ...result, headers: { 'Content-Type': 'application/json' } };
+    try {
+      const body = parseBody(event);
+      const result = await updateRecord(putMatch.type, putMatch.recordId, body);
+      return { ...result, headers: JSON_HEADERS };
+    } catch (err) {
+      console.error('xena-ops-api error:', err);
+      return jsonResponse(500, { ok: false, error: err instanceof Error ? err.message : 'Internal server error' });
+    }
   }
 
-  return {
-    statusCode: 404,
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ error: 'Not found', available: [...Object.keys(GET_ROUTES), 'POST /{entity}', 'PUT /{entity}/{recordId}'] }),
-  };
+  return jsonResponse(404, { error: 'Not found', available: [...Object.keys(GET_ROUTES), 'POST /{entity}', 'PUT /{entity}/{recordId}'] });
 };
