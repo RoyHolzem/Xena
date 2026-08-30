@@ -26,6 +26,8 @@ const OPEN_STATUSES = {
   orders: s => !['COMPLETED', 'CANCELLED'].includes(s),
 };
 
+const GENERATED_ID_MAX_ATTEMPTS = 5;
+
 // Valid statuses per entity type
 const VALID_STATUSES = {
   incidents: ['OPEN', 'ACKNOWLEDGED', 'IN_PROGRESS', 'MONITORING', 'RESOLVED', 'CLOSED'],
@@ -167,6 +169,10 @@ function generateRecordId(type) {
   return `${prefix}-${year}-${seq}`;
 }
 
+function isConditionalCheckFailed(err) {
+  return err?.name === 'ConditionalCheckFailedException';
+}
+
 function parseBody(event) {
   try {
     let body = event.body;
@@ -193,25 +199,50 @@ async function createRecord(type, body) {
   }
 
   const now = new Date().toISOString();
-  const recordId = body.recordId || generateRecordId(type);
+  const explicitRecordId = typeof body.recordId === 'string' && body.recordId.trim()
+    ? body.recordId.trim()
+    : null;
 
   const allowed = EDITABLE_FIELDS[type] || [];
-  const item = { recordId, createdAt: now, updatedAt: now, startTime: now };
+  const baseItem = { createdAt: now, updatedAt: now, startTime: now };
   for (const field of allowed) {
     if (body[field] !== undefined && body[field] !== null) {
-      item[field] = body[field];
+      baseItem[field] = body[field];
     }
   }
-  // Ensure startTime is set
-  if (!item.startTime) item.startTime = now;
 
-  await ddb.send(new PutCommand({ TableName: TABLES[type], Item: item }));
+  const maxAttempts = explicitRecordId ? 1 : GENERATED_ID_MAX_ATTEMPTS;
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    const recordId = explicitRecordId || generateRecordId(type);
+    const item = { ...baseItem, recordId };
 
-  return {
-    statusCode: 201,
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ ok: true, recordId, item: normalize(item) }),
-  };
+    try {
+      await ddb.send(new PutCommand({
+        TableName: TABLES[type],
+        Item: item,
+        ConditionExpression: 'attribute_not_exists(recordId)',
+      }));
+
+      return {
+        statusCode: 201,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ok: true, recordId, item: normalize(item) }),
+      };
+    } catch (err) {
+      if (isConditionalCheckFailed(err)) {
+        if (explicitRecordId) {
+          return { statusCode: 409, body: JSON.stringify({ ok: false, error: `Record ${recordId} already exists` }) };
+        }
+        if (attempt < maxAttempts) {
+          continue;
+        }
+        return { statusCode: 409, body: JSON.stringify({ ok: false, error: 'Failed to allocate unique recordId' }) };
+      }
+      throw err;
+    }
+  }
+
+  return { statusCode: 409, body: JSON.stringify({ ok: false, error: 'Failed to allocate unique recordId' }) };
 }
 
 async function updateRecord(type, recordId, body) {
