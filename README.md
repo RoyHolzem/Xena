@@ -126,9 +126,12 @@ aws cloudformation package \
 aws cloudformation deploy \
   --template-file packaged.yaml \
   --stack-name xena-ops-api \
+  --parameter-overrides OpsApiBearerToken="$XENA_OPS_API_TOKEN" \
   --capabilities CAPABILITY_AUTO_EXPAND CAPABILITY_IAM \
   --region eu-central-1
 ```
+
+Every Operations API request must include `Authorization: Bearer $XENA_OPS_API_TOKEN`.
 
 ## Quick Deploy (Main Stack)
 
@@ -437,7 +440,8 @@ A custom OpenClaw gateway plugin (`web-request`) provides `web_post` and `web_pu
 {
   "enabled": true,
   "config": {
-    "allowUrls": "https://tsbmgsi20f.execute-api.eu-central-1.amazonaws.com"
+    "allowUrls": "https://tsbmgsi20f.execute-api.eu-central-1.amazonaws.com",
+    "authEnvVar": "XENA_OPS_API_TOKEN"
   }
 }
 ```

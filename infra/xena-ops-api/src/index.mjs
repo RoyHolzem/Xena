@@ -2,6 +2,7 @@ import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
 import { DynamoDBDocumentClient, ScanCommand, GetCommand, PutCommand, UpdateCommand } from '@aws-sdk/lib-dynamodb';
 
 const ddb = DynamoDBDocumentClient.from(new DynamoDBClient({ region: process.env.AWS_REGION || 'eu-central-1' }));
+const opsApiToken = (process.env.XENA_OPS_API_TOKEN || '').trim();
 
 const TABLES = {
   incidents: process.env.INCIDENTS_TABLE || 'roy-telecom-incidents-lux',
@@ -80,6 +81,26 @@ const EDITABLE_FIELDS = {
 
 // Fields required for creation
 const REQUIRED_CREATE_FIELDS = ['title', 'status', 'severity'];
+
+function unauthorized() {
+  return {
+    statusCode: 401,
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ ok: false, error: 'Unauthorized' }),
+  };
+}
+
+function getAuthorizationHeader(event) {
+  return event.headers?.authorization || event.headers?.Authorization || '';
+}
+
+function isAuthorized(event) {
+  if (!opsApiToken) {
+    console.error('xena-ops-api refused request because XENA_OPS_API_TOKEN is not configured');
+    return false;
+  }
+  return getAuthorizationHeader(event).trim() === `Bearer ${opsApiToken}`;
+}
 
 function toIso(v) { return (typeof v === 'string' && v) ? v : new Date(0).toISOString(); }
 
@@ -167,6 +188,10 @@ function generateRecordId(type) {
   return `${prefix}-${year}-${seq}`;
 }
 
+function isConditionalCheckFailed(error) {
+  return error?.name === 'ConditionalCheckFailedException';
+}
+
 function parseBody(event) {
   try {
     let body = event.body;
@@ -193,24 +218,50 @@ async function createRecord(type, body) {
   }
 
   const now = new Date().toISOString();
-  const recordId = body.recordId || generateRecordId(type);
-
   const allowed = EDITABLE_FIELDS[type] || [];
-  const item = { recordId, createdAt: now, updatedAt: now, startTime: now };
-  for (const field of allowed) {
-    if (body[field] !== undefined && body[field] !== null) {
-      item[field] = body[field];
+  const suppliedRecordId = typeof body.recordId === 'string' ? body.recordId.trim() : '';
+  const maxAttempts = suppliedRecordId ? 1 : 5;
+
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    const recordId = suppliedRecordId || generateRecordId(type);
+    const item = { recordId, createdAt: now, updatedAt: now, startTime: now };
+    for (const field of allowed) {
+      if (body[field] !== undefined && body[field] !== null) {
+        item[field] = body[field];
+      }
+    }
+    // Ensure startTime is set
+    if (!item.startTime) item.startTime = now;
+
+    try {
+      await ddb.send(new PutCommand({
+        TableName: TABLES[type],
+        Item: item,
+        ConditionExpression: 'attribute_not_exists(recordId)',
+      }));
+
+      return {
+        statusCode: 201,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ok: true, recordId, item: normalize(item) }),
+      };
+    } catch (err) {
+      if (isConditionalCheckFailed(err)) {
+        if (!suppliedRecordId && attempt < maxAttempts) continue;
+        return {
+          statusCode: 409,
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ ok: false, error: `Record ${recordId} already exists` }),
+        };
+      }
+      throw err;
     }
   }
-  // Ensure startTime is set
-  if (!item.startTime) item.startTime = now;
-
-  await ddb.send(new PutCommand({ TableName: TABLES[type], Item: item }));
 
   return {
-    statusCode: 201,
+    statusCode: 409,
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ ok: true, recordId, item: normalize(item) }),
+    body: JSON.stringify({ ok: false, error: 'Failed to generate a unique recordId' }),
   };
 }
 
@@ -302,6 +353,10 @@ function matchPostRoute(route) {
 
 export const handler = async (event) => {
   const route = `${event.requestContext?.http?.method || 'GET'} ${event.rawPath || event.path || '/'}`;
+
+  if (!isAuthorized(event)) {
+    return unauthorized();
+  }
 
   // GET routes
   const getHandle = GET_ROUTES[route];
