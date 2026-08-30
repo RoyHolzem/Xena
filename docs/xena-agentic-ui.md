@@ -55,15 +55,17 @@ If the gateway batches a single JSON object with both `answer` and `uiActions`, 
 | `OPEN_INCIDENT` | `recordId` | Set view to incidents, fetch `/api/telecom?view=incidents&recordId=…`, select record |
 | `OPEN_EVENT` | `recordId` | Same for events |
 | `OPEN_PLANNED_WORK` | `recordId` | Same for planned works |
+| `OPEN_ORDER` | `recordId` | Same for orders |
 | `SHOW_INCIDENT` | `recordId` | MVP: same as `OPEN_*` (detail on right) |
 | `SHOW_EVENT` | `recordId` | MVP: same |
 | `SHOW_PLANNED_WORK` | `recordId` | MVP: same |
-| `SHOW_SEARCH_RESULTS` | `entity`: `incident` \| `event` \| `planned-work`, `results[]` | Left list; each row has `recordId`, `title`, `status`, `severity`. If **exactly one** result, auto-open and clear list |
+| `SHOW_ORDER` | `recordId` | MVP: same |
+| `SHOW_SEARCH_RESULTS` | `entity`: `incident` \| `event` \| `planned-work` \| `order`, `results[]` | Left list; each row has `recordId`, `title`, `status`, `severity`. If **exactly one** result, auto-open and clear list |
 | `CLEAR_CONTEXT` | - | Clear telecom in-memory data, selection, search results, activity |
 | `SET_AGENT_ACTIVITY` | `phase`, `message` (or message derived from `phase` if only one is set) | Activity bar text |
 | `CLEAR_AGENT_ACTIVITY` | - | Hide activity bar |
 
-**Legacy:** `{ "type": "telecom_focus", "view": "incidents"|"events"|"planned-works", "recordId": "…" }` is still accepted and mapped to the corresponding `OPEN_*` action.
+**Legacy:** `{ "type": "telecom_focus", "view": "incidents"|"events"|"planned-works"|"orders", "recordId": "…" }` is still accepted and mapped to the corresponding `OPEN_*` action.
 
 Types live in [`lib/xena-ui-actions.ts`](../lib/xena-ui-actions.ts). Normalization and application: [`features/chat/ui-action-dispatcher.ts`](../features/chat/ui-action-dispatcher.ts).
 
