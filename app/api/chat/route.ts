@@ -12,7 +12,7 @@ export const maxDuration = 60;
 // SSE stream transform: inject xena_ui actions when record IDs appear in delta
 // ---------------------------------------------------------------------------
 
-const RECORD_ID_RE = /\b(INCIDENT-LUX-\d+|EVENT-LUX-\d+|PW-LUX-\d+|ORDER-LUX-\d+)\b/g;
+const RECORD_ID_RE = /\b(INCIDENT-LUX-\d{4}-\d{4}|EVENT-LUX-\d{4}-\d{4}|PW-LUX-\d{4}-\d{4}|ORDER-LUX-\d{4}-\d{4})\b/g;
 
 function recordIdToAction(recordId: string): XenaUiAction | null {
   if (recordId.startsWith('INCIDENT-')) return { type: 'OPEN_INCIDENT', recordId };
