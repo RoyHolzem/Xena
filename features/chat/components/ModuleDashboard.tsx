@@ -312,6 +312,7 @@ export function ModuleDashboard({ view, onBackToXena }: ModuleDashboardProps) {
         <div className={styles.moduleDetail}>
           {selectedRecord ? (
             <RecordDetail
+              key={selectedRecord.recordId}
               record={selectedRecord}
               view={view}
               statuses={statuses}
