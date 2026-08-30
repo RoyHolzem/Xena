@@ -1,7 +1,10 @@
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
 import { DynamoDBDocumentClient, ScanCommand, GetCommand, PutCommand, UpdateCommand } from '@aws-sdk/lib-dynamodb';
+import { timingSafeEqual } from 'node:crypto';
 
 const ddb = DynamoDBDocumentClient.from(new DynamoDBClient({ region: process.env.AWS_REGION || 'eu-central-1' }));
+
+const GENERATED_ID_CREATE_ATTEMPTS = 5;
 
 const TABLES = {
   incidents: process.env.INCIDENTS_TABLE || 'roy-telecom-incidents-lux',
@@ -82,6 +85,52 @@ const EDITABLE_FIELDS = {
 const REQUIRED_CREATE_FIELDS = ['title', 'status', 'severity'];
 
 function toIso(v) { return (typeof v === 'string' && v) ? v : new Date(0).toISOString(); }
+
+function jsonResponse(statusCode, body) {
+  return {
+    statusCode,
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  };
+}
+
+function getHeader(headers, name) {
+  const target = name.toLowerCase();
+  for (const [key, value] of Object.entries(headers || {})) {
+    if (key.toLowerCase() === target) return Array.isArray(value) ? value[0] : value;
+  }
+  return undefined;
+}
+
+function safeEqual(left, right) {
+  const leftBuffer = Buffer.from(left);
+  const rightBuffer = Buffer.from(right);
+  return leftBuffer.length === rightBuffer.length && timingSafeEqual(leftBuffer, rightBuffer);
+}
+
+function authError(event) {
+  const expectedToken = process.env.XENA_OPS_API_TOKEN;
+  if (!expectedToken) {
+    console.error('xena-ops-api misconfigured: XENA_OPS_API_TOKEN is not set');
+    return jsonResponse(500, { ok: false, error: 'Ops API authentication is not configured' });
+  }
+
+  const authHeader = getHeader(event.headers, 'authorization');
+  if (!authHeader?.startsWith('Bearer ')) {
+    return jsonResponse(401, { ok: false, error: 'Unauthorized' });
+  }
+
+  const suppliedToken = authHeader.slice('Bearer '.length).trim();
+  if (!safeEqual(suppliedToken, expectedToken)) {
+    return jsonResponse(401, { ok: false, error: 'Unauthorized' });
+  }
+
+  return null;
+}
+
+function isConditionalCheckFailure(error) {
+  return error instanceof Error && error.name === 'ConditionalCheckFailedException';
+}
 
 function normalize(item) {
   return {
@@ -193,25 +242,48 @@ async function createRecord(type, body) {
   }
 
   const now = new Date().toISOString();
-  const recordId = body.recordId || generateRecordId(type);
-
   const allowed = EDITABLE_FIELDS[type] || [];
-  const item = { recordId, createdAt: now, updatedAt: now, startTime: now };
-  for (const field of allowed) {
-    if (body[field] !== undefined && body[field] !== null) {
-      item[field] = body[field];
+  const requestedRecordId = typeof body.recordId === 'string' && body.recordId.trim() ? body.recordId.trim() : null;
+  const maxAttempts = requestedRecordId ? 1 : GENERATED_ID_CREATE_ATTEMPTS;
+  let lastRecordId = '';
+
+  for (let attempt = 0; attempt < maxAttempts; attempt++) {
+    const recordId = requestedRecordId || generateRecordId(type);
+    lastRecordId = recordId;
+    const item = { recordId, createdAt: now, updatedAt: now, startTime: now };
+    for (const field of allowed) {
+      if (body[field] !== undefined && body[field] !== null) {
+        item[field] = body[field];
+      }
+    }
+    // Ensure startTime is set
+    if (!item.startTime) item.startTime = now;
+
+    try {
+      await ddb.send(new PutCommand({
+        TableName: TABLES[type],
+        Item: item,
+        ConditionExpression: 'attribute_not_exists(recordId)',
+      }));
+
+      return jsonResponse(201, { ok: true, recordId, item: normalize(item) });
+    } catch (err) {
+      if (isConditionalCheckFailure(err)) {
+        if (!requestedRecordId && attempt + 1 < maxAttempts) {
+          continue;
+        }
+        return jsonResponse(409, { ok: false, error: `Record ${recordId} already exists` });
+      }
+
+      console.error('xena-ops-api create error:', err);
+      return jsonResponse(500, { ok: false, error: err.message || 'Failed to create record' });
     }
   }
-  // Ensure startTime is set
-  if (!item.startTime) item.startTime = now;
 
-  await ddb.send(new PutCommand({ TableName: TABLES[type], Item: item }));
-
-  return {
-    statusCode: 201,
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ ok: true, recordId, item: normalize(item) }),
-  };
+  return jsonResponse(409, {
+    ok: false,
+    error: `Could not allocate a unique record ID after ${maxAttempts} attempts; last tried ${lastRecordId}`,
+  });
 }
 
 async function updateRecord(type, recordId, body) {
@@ -302,6 +374,8 @@ function matchPostRoute(route) {
 
 export const handler = async (event) => {
   const route = `${event.requestContext?.http?.method || 'GET'} ${event.rawPath || event.path || '/'}`;
+  const unauthorized = authError(event);
+  if (unauthorized) return unauthorized;
 
   // GET routes
   const getHandle = GET_ROUTES[route];
