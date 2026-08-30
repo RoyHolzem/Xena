@@ -37,6 +37,7 @@ export function ChatShell() {
   const [search] = useState('');
   const [selectedModel, setSelectedModel] = useState(DEFAULT_MODEL);
   const [theme, setTheme] = useState<'dark' | 'light'>('dark');
+  const [moduleFocusTarget, setModuleFocusTarget] = useState<{ view: TelecomView; recordId: string } | null>(null);
 
   const actionLog = useActionLog();
 
@@ -105,7 +106,7 @@ export function ChatShell() {
   useActionLogSync(actionLog, chat.presence, chat.messages, getAuthToken);
 
   useEffect(() => {
-    const views: TelecomView[] = ['incidents', 'events', 'planned-works'];
+    const views: TelecomView[] = ['incidents', 'events', 'planned-works', 'orders'];
     for (const view of views) {
       void telecom.loadTelecomView(view, true);
     }
@@ -129,10 +130,16 @@ export function ChatShell() {
 
   // Navigate to a record: switch mode & view, select the record
   const handleNavigateToRecord = useCallback((view: TelecomView, recordId: string) => {
+    setModuleFocusTarget({ view, recordId });
     setMode(view as AppMode);
     setContextView(view);
     telecom.selectRecord(view, recordId);
   }, [telecom]);
+
+  const handleModeChange = useCallback((nextMode: AppMode) => {
+    setModuleFocusTarget(null);
+    setMode(nextMode);
+  }, []);
 
   const displayRecord = matchedRecord || telecom.selectedRecord;
 
@@ -158,7 +165,7 @@ export function ChatShell() {
     <div className={styles.shell}>
       <TopNav
         mode={mode}
-        setMode={setMode}
+        setMode={handleModeChange}
         ghStatus={ghStatus}
         ghCommit={ghCommit}
         models={models}
@@ -211,6 +218,9 @@ export function ChatShell() {
           <ModuleDashboard
             view={mode as TelecomView}
             onBackToXena={() => setMode('xena')}
+            initialRecordId={
+              moduleFocusTarget?.view === mode ? moduleFocusTarget.recordId : undefined
+            }
           />
         )}
       </div>
