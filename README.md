@@ -67,7 +67,7 @@ Xena Operations API (separate stack):
 
 ## Xena Operations API
 
-A dedicated HTTPS API for safe access to operational data. The Lambda uses an IAM role with least-privilege DynamoDB permissions — no direct AWS credentials anywhere. Supports both read (GET) and write (POST/PUT) operations.
+A dedicated HTTPS API for safe access to operational data. The Lambda uses an IAM role with least-privilege DynamoDB permissions — no direct AWS credentials anywhere. Supports both read (GET) and bearer-token-protected write (POST/PUT) operations.
 
 **Stack**: `xena-ops-api` (CloudFormation SAM)
 **IaC**: `infra/xena-ops-api/template.yaml`
@@ -88,6 +88,8 @@ A dedicated HTTPS API for safe access to operational data. The Lambda uses an IA
 | GET | `/orders/open` | All open orders (not COMPLETED/CANCELLED) |
 
 ### Write Endpoints
+
+Write endpoints require `Authorization: Bearer <OpsApiBearerToken>`.
 
 | Method | Endpoint | Description | Required Fields |
 |---|---|---|---|
@@ -126,6 +128,7 @@ aws cloudformation package \
 aws cloudformation deploy \
   --template-file packaged.yaml \
   --stack-name xena-ops-api \
+  --parameter-overrides OpsApiBearerToken='replace-with-a-long-random-token' \
   --capabilities CAPABILITY_AUTO_EXPAND CAPABILITY_IAM \
   --region eu-central-1
 ```

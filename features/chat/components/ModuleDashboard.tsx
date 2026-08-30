@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState, useCallback } from 'react';
+import { useMemo, useState, useCallback, useEffect, useRef } from 'react';
 import type { TelecomRecord, TelecomView } from '@/lib/types';
 import { useTelecom } from '../hooks/useTelecom';
 import { useTelecomMutation } from '../hooks/useTelecomMutation';
@@ -72,13 +72,15 @@ type StatusFilter = 'all' | 'active' | 'closed' | string;
 interface ModuleDashboardProps {
   view: TelecomView;
   onBackToXena: () => void;
+  initialRecordId?: string | null;
 }
 
-export function ModuleDashboard({ view, onBackToXena }: ModuleDashboardProps) {
+export function ModuleDashboard({ view, onBackToXena, initialRecordId }: ModuleDashboardProps) {
   const getAuthToken = useAuthToken();
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const lastInitialFocusRef = useRef<string | null>(null);
 
   const {
     records,
@@ -97,6 +99,19 @@ export function ModuleDashboard({ view, onBackToXena }: ModuleDashboardProps) {
 
   const meta = VIEW_META.find((v) => v.key === view);
   const statuses = STATUS_CONFIG[view];
+
+  useEffect(() => {
+    if (!initialRecordId) return;
+
+    const focusKey = `${view}:${initialRecordId}`;
+    if (lastInitialFocusRef.current === focusKey) return;
+    lastInitialFocusRef.current = focusKey;
+
+    setSearch('');
+    setStatusFilter('all');
+    setSelectedRecordIds((prev) => ({ ...prev, [view]: initialRecordId }));
+    void loadTelecomView(view, true, initialRecordId);
+  }, [initialRecordId, view, loadTelecomView, setSelectedRecordIds]);
 
   // Apply status filter on top of search filter
   const filteredRecords = useMemo(() => {
@@ -135,7 +150,7 @@ export function ModuleDashboard({ view, onBackToXena }: ModuleDashboardProps) {
     async (recordId: string, newStatus: string) => {
       const result = await updateRecord(view, recordId, { status: newStatus });
       if (result.ok) {
-        void loadTelecomView(view, true);
+        void loadTelecomView(view, true, result.recordId || recordId);
       } else {
         console.error('Status update failed:', result.error);
       }
@@ -147,7 +162,7 @@ export function ModuleDashboard({ view, onBackToXena }: ModuleDashboardProps) {
     async (recordId: string, field: string, value: string) => {
       const result = await updateRecord(view, recordId, { [field]: value });
       if (result.ok) {
-        void loadTelecomView(view, true);
+        void loadTelecomView(view, true, result.recordId || recordId);
       } else {
         console.error('Update failed:', result.error);
       }
@@ -160,7 +175,7 @@ export function ModuleDashboard({ view, onBackToXena }: ModuleDashboardProps) {
       const result = await createRecord(view, fields);
       if (result.ok) {
         setShowCreateModal(false);
-        void loadTelecomView(view, true);
+        void loadTelecomView(view, true, result.recordId);
       } else {
         console.error('Create failed:', result.error);
       }
@@ -312,6 +327,7 @@ export function ModuleDashboard({ view, onBackToXena }: ModuleDashboardProps) {
         <div className={styles.moduleDetail}>
           {selectedRecord ? (
             <RecordDetail
+              key={selectedRecord.recordId}
               record={selectedRecord}
               view={view}
               statuses={statuses}
