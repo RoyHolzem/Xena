@@ -10,6 +10,10 @@ const TABLES = {
   orders: process.env.ORDERS_TABLE || 'roy-telecom-orders-lux',
 };
 
+function isConditionalCheckFailed(error) {
+  return error instanceof Error && error.name === 'ConditionalCheckFailedException';
+}
+
 const SEVERITY = { SEV1: 0, SEV2: 1, SEV3: 2, SEV4: 3 };
 
 const STATUS_ORDER = {
@@ -205,7 +209,18 @@ async function createRecord(type, body) {
   // Ensure startTime is set
   if (!item.startTime) item.startTime = now;
 
-  await ddb.send(new PutCommand({ TableName: TABLES[type], Item: item }));
+  try {
+    await ddb.send(new PutCommand({
+      TableName: TABLES[type],
+      Item: item,
+      ConditionExpression: 'attribute_not_exists(recordId)',
+    }));
+  } catch (err) {
+    if (isConditionalCheckFailed(err)) {
+      return { statusCode: 409, body: JSON.stringify({ ok: false, error: `Record ${recordId} already exists` }) };
+    }
+    throw err;
+  }
 
   return {
     statusCode: 201,
