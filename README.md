@@ -73,6 +73,7 @@ A dedicated HTTPS API for safe access to operational data. The Lambda uses an IA
 **IaC**: `infra/xena-ops-api/template.yaml`
 **API URL**: `https://tsbmgsi20f.execute-api.eu-central-1.amazonaws.com`
 **Lambda**: `xena-ops-api` (Node.js 20)
+**Write auth**: POST/PUT endpoints require `Authorization: Bearer $XENA_OPS_API_TOKEN`.
 
 ### Read Endpoints
 
@@ -88,6 +89,8 @@ A dedicated HTTPS API for safe access to operational data. The Lambda uses an IA
 | GET | `/orders/open` | All open orders (not COMPLETED/CANCELLED) |
 
 ### Write Endpoints
+
+All write requests must include `Authorization: Bearer $XENA_OPS_API_TOKEN`.
 
 | Method | Endpoint | Description | Required Fields |
 |---|---|---|---|
@@ -127,6 +130,7 @@ aws cloudformation deploy \
   --template-file packaged.yaml \
   --stack-name xena-ops-api \
   --capabilities CAPABILITY_AUTO_EXPAND CAPABILITY_IAM \
+  --parameter-overrides OpsApiBearerToken="$XENA_OPS_API_TOKEN" \
   --region eu-central-1
 ```
 

@@ -106,6 +106,11 @@ export function ModuleDashboard({ view, onBackToXena }: ModuleDashboardProps) {
     return searchFiltered.filter((r) => r.status === statusFilter);
   }, [searchFiltered, statusFilter, statuses]);
 
+  const visibleSelectedRecord = useMemo(() => {
+    if (!selectedRecord) return null;
+    return filteredRecords.some((record) => record.recordId === selectedRecord.recordId) ? selectedRecord : null;
+  }, [filteredRecords, selectedRecord]);
+
   // Status counts
   const statusCounts = useMemo(() => {
     const counts: Record<string, number> = { all: records.length, active: 0, closed: 0 };
@@ -299,7 +304,7 @@ export function ModuleDashboard({ view, onBackToXena }: ModuleDashboardProps) {
                 key={record.recordId}
                 record={record}
                 view={view}
-                isActive={selectedRecord?.recordId === record.recordId}
+                isActive={visibleSelectedRecord?.recordId === record.recordId}
                 index={idx}
                 onClick={() => setSelectedRecordIds((prev) => ({ ...prev, [view]: record.recordId }))}
                 onStatusChange={handleStatusChange}
@@ -310,9 +315,10 @@ export function ModuleDashboard({ view, onBackToXena }: ModuleDashboardProps) {
         </div>
 
         <div className={styles.moduleDetail}>
-          {selectedRecord ? (
+          {visibleSelectedRecord ? (
             <RecordDetail
-              record={selectedRecord}
+              key={visibleSelectedRecord.recordId}
+              record={visibleSelectedRecord}
               view={view}
               statuses={statuses}
               getNextStatuses={getNextStatuses}
@@ -494,7 +500,7 @@ function RecordDetail({
   };
 
   return (
-    <div key={record.recordId} className={styles.moduleDetailInner}>
+    <div className={styles.moduleDetailInner}>
       {/* Hero header */}
       <div className={cn(styles.detailHero, styles[`tintBg_${tone}`])}>
         <div className={styles.detailHeroKind}>
