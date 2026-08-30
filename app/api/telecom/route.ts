@@ -24,6 +24,15 @@ const client = DynamoDBDocumentClient.from(
 
 type RawItem = Record<string, any>;
 
+function isConditionalCheckFailed(error: unknown): boolean {
+  return (
+    typeof error === 'object' &&
+    error !== null &&
+    'name' in error &&
+    (error as { name?: string }).name === 'ConditionalCheckFailedException'
+  );
+}
+
 const severityOrder: Record<string, number> = {
   SEV1: 0,
   SEV2: 1,
@@ -512,9 +521,16 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    await client.send(new PutCommand({ TableName: tableNames[view], Item: item }));
+    await client.send(new PutCommand({
+      TableName: tableNames[view],
+      Item: item,
+      ConditionExpression: 'attribute_not_exists(recordId)',
+    }));
     return NextResponse.json({ ok: true, recordId, item: normalize(view, item as RawItem) }, { status: 201 });
   } catch (error) {
+    if (isConditionalCheckFailed(error)) {
+      return NextResponse.json({ ok: false, error: `Record ${recordId} already exists` }, { status: 409 });
+    }
     const message = error instanceof Error ? error.message : 'Failed to create record';
     return NextResponse.json({ ok: false, error: message }, { status: 500 });
   }
