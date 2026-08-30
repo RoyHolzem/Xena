@@ -472,6 +472,12 @@ function generateRecordId(view: TelecomView): string {
   return `${prefix[view]}-${year}-${seq}`;
 }
 
+const MAX_GENERATED_ID_ATTEMPTS = 5;
+
+function isConditionalCheckFailure(error: unknown): boolean {
+  return error instanceof Error && error.name === 'ConditionalCheckFailedException';
+}
+
 export async function POST(request: NextRequest) {
   const authHeader = request.headers.get('Authorization');
   const user = await verifyToken(authHeader);
@@ -501,23 +507,44 @@ export async function POST(request: NextRequest) {
   }
 
   const now = new Date().toISOString();
-  const recordId = (body.recordId as string) || generateRecordId(view);
+  const requestedRecordId = typeof body.recordId === 'string' && body.recordId.trim()
+    ? body.recordId.trim()
+    : null;
 
   const allowed = EDITABLE_FIELDS[view];
-  const item: Record<string, unknown> = { recordId, createdAt: now, updatedAt: now, startTime: now };
-  for (const field of allowed) {
-    if (body[field] !== undefined && body[field] !== null) {
-      item[field] = body[field];
+  const attempts = requestedRecordId ? 1 : MAX_GENERATED_ID_ATTEMPTS;
+
+  for (let attempt = 0; attempt < attempts; attempt++) {
+    const recordId = requestedRecordId || generateRecordId(view);
+    const item: Record<string, unknown> = { recordId, createdAt: now, updatedAt: now, startTime: now };
+    for (const field of allowed) {
+      if (body[field] !== undefined && body[field] !== null) {
+        item[field] = body[field];
+      }
+    }
+
+    try {
+      await client.send(new PutCommand({
+        TableName: tableNames[view],
+        Item: item,
+        ConditionExpression: 'attribute_not_exists(#recordId)',
+        ExpressionAttributeNames: { '#recordId': 'recordId' },
+      }));
+      return NextResponse.json({ ok: true, recordId, item: normalize(view, item as RawItem) }, { status: 201 });
+    } catch (error) {
+      if (isConditionalCheckFailure(error)) {
+        if (requestedRecordId || attempt === attempts - 1) {
+          return NextResponse.json({ ok: false, error: `Record ${recordId} already exists` }, { status: 409 });
+        }
+        continue;
+      }
+
+      const message = error instanceof Error ? error.message : 'Failed to create record';
+      return NextResponse.json({ ok: false, error: message }, { status: 500 });
     }
   }
 
-  try {
-    await client.send(new PutCommand({ TableName: tableNames[view], Item: item }));
-    return NextResponse.json({ ok: true, recordId, item: normalize(view, item as RawItem) }, { status: 201 });
-  } catch (error) {
-    const message = error instanceof Error ? error.message : 'Failed to create record';
-    return NextResponse.json({ ok: false, error: message }, { status: 500 });
-  }
+  return NextResponse.json({ ok: false, error: 'Failed to create unique record ID' }, { status: 409 });
 }
 
 export async function PUT(request: NextRequest) {
