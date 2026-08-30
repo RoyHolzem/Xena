@@ -1,7 +1,10 @@
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
 import { DynamoDBDocumentClient, ScanCommand, GetCommand, PutCommand, UpdateCommand } from '@aws-sdk/lib-dynamodb';
+import { timingSafeEqual } from 'crypto';
 
 const ddb = DynamoDBDocumentClient.from(new DynamoDBClient({ region: process.env.AWS_REGION || 'eu-central-1' }));
+const OPS_API_TOKEN = process.env.XENA_OPS_API_TOKEN;
+const MAX_GENERATED_ID_ATTEMPTS = 5;
 
 const TABLES = {
   incidents: process.env.INCIDENTS_TABLE || 'roy-telecom-incidents-lux',
@@ -167,6 +170,21 @@ function generateRecordId(type) {
   return `${prefix}-${year}-${seq}`;
 }
 
+function isAuthorized(event) {
+  if (!OPS_API_TOKEN) return false;
+
+  const authHeader = event.headers?.authorization || event.headers?.Authorization || '';
+  if (!authHeader.startsWith('Bearer ')) return false;
+
+  const actual = Buffer.from(authHeader);
+  const expected = Buffer.from(`Bearer ${OPS_API_TOKEN}`);
+  return actual.length === expected.length && timingSafeEqual(actual, expected);
+}
+
+function isConditionalCheckFailed(err) {
+  return err?.name === 'ConditionalCheckFailedException';
+}
+
 function parseBody(event) {
   try {
     let body = event.body;
@@ -192,26 +210,48 @@ async function createRecord(type, body) {
     return { statusCode: 400, body: JSON.stringify({ ok: false, error: `Invalid status '${body.status}'. Valid: ${VALID_STATUSES[type].join(', ')}` }) };
   }
 
-  const now = new Date().toISOString();
-  const recordId = body.recordId || generateRecordId(type);
-
   const allowed = EDITABLE_FIELDS[type] || [];
-  const item = { recordId, createdAt: now, updatedAt: now, startTime: now };
-  for (const field of allowed) {
-    if (body[field] !== undefined && body[field] !== null) {
-      item[field] = body[field];
+  const requestedRecordId = typeof body.recordId === 'string' && body.recordId.trim() ? body.recordId.trim() : null;
+  const attempts = requestedRecordId ? 1 : MAX_GENERATED_ID_ATTEMPTS;
+
+  for (let attempt = 0; attempt < attempts; attempt++) {
+    const now = new Date().toISOString();
+    const recordId = requestedRecordId || generateRecordId(type);
+    const item = { recordId, createdAt: now, updatedAt: now, startTime: now };
+    for (const field of allowed) {
+      if (body[field] !== undefined && body[field] !== null) {
+        item[field] = body[field];
+      }
+    }
+    // Ensure startTime is set
+    if (!item.startTime) item.startTime = now;
+
+    try {
+      await ddb.send(new PutCommand({
+        TableName: TABLES[type],
+        Item: item,
+        ConditionExpression: 'attribute_not_exists(recordId)',
+      }));
+
+      return {
+        statusCode: 201,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ok: true, recordId, item: normalize(item) }),
+      };
+    } catch (err) {
+      if (isConditionalCheckFailed(err)) {
+        if (requestedRecordId) {
+          return { statusCode: 409, body: JSON.stringify({ ok: false, error: `Record ${recordId} already exists` }) };
+        }
+        continue;
+      }
+
+      console.error('xena-ops-api create error:', err);
+      return { statusCode: 500, body: JSON.stringify({ ok: false, error: err.message || 'Failed to create record' }) };
     }
   }
-  // Ensure startTime is set
-  if (!item.startTime) item.startTime = now;
 
-  await ddb.send(new PutCommand({ TableName: TABLES[type], Item: item }));
-
-  return {
-    statusCode: 201,
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ ok: true, recordId, item: normalize(item) }),
-  };
+  return { statusCode: 409, body: JSON.stringify({ ok: false, error: 'Failed to allocate a unique recordId' }) };
 }
 
 async function updateRecord(type, recordId, body) {
@@ -302,6 +342,22 @@ function matchPostRoute(route) {
 
 export const handler = async (event) => {
   const route = `${event.requestContext?.http?.method || 'GET'} ${event.rawPath || event.path || '/'}`;
+
+  if (!OPS_API_TOKEN) {
+    return {
+      statusCode: 500,
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ok: false, error: 'Ops API token is not configured' }),
+    };
+  }
+
+  if (!isAuthorized(event)) {
+    return {
+      statusCode: 401,
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ok: false, error: 'Unauthorized' }),
+    };
+  }
 
   // GET routes
   const getHandle = GET_ROUTES[route];
