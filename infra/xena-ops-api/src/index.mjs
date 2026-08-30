@@ -167,6 +167,10 @@ function generateRecordId(type) {
   return `${prefix}-${year}-${seq}`;
 }
 
+function isConditionalCheckFailed(error) {
+  return error?.name === 'ConditionalCheckFailedException';
+}
+
 function parseBody(event) {
   try {
     let body = event.body;
@@ -193,24 +197,61 @@ async function createRecord(type, body) {
   }
 
   const now = new Date().toISOString();
-  const recordId = body.recordId || generateRecordId(type);
+  const requestedRecordId = typeof body.recordId === 'string' ? body.recordId.trim() : '';
+  const hasRequestedRecordId = requestedRecordId.length > 0;
 
   const allowed = EDITABLE_FIELDS[type] || [];
-  const item = { recordId, createdAt: now, updatedAt: now, startTime: now };
+  const baseItem = { createdAt: now, updatedAt: now, startTime: now };
   for (const field of allowed) {
     if (body[field] !== undefined && body[field] !== null) {
-      item[field] = body[field];
+      baseItem[field] = body[field];
     }
   }
-  // Ensure startTime is set
-  if (!item.startTime) item.startTime = now;
 
-  await ddb.send(new PutCommand({ TableName: TABLES[type], Item: item }));
+  const maxAttempts = hasRequestedRecordId ? 1 : 5;
+
+  for (let attempt = 0; attempt < maxAttempts; attempt++) {
+    const recordId = hasRequestedRecordId ? requestedRecordId : generateRecordId(type);
+    const item = { ...baseItem, recordId };
+
+    try {
+      await ddb.send(new PutCommand({
+        TableName: TABLES[type],
+        Item: item,
+        ConditionExpression: 'attribute_not_exists(recordId)',
+      }));
+
+      return {
+        statusCode: 201,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ok: true, recordId, item: normalize(item) }),
+      };
+    } catch (error) {
+      if (isConditionalCheckFailed(error) && !hasRequestedRecordId && attempt < maxAttempts - 1) {
+        continue;
+      }
+      if (isConditionalCheckFailed(error)) {
+        if (!hasRequestedRecordId) {
+          return {
+            statusCode: 500,
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ ok: false, error: 'Failed to allocate a unique recordId' }),
+          };
+        }
+        return {
+          statusCode: 409,
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ ok: false, error: `Record ${requestedRecordId} already exists` }),
+        };
+      }
+      throw error;
+    }
+  }
 
   return {
-    statusCode: 201,
+    statusCode: 500,
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ ok: true, recordId, item: normalize(item) }),
+    body: JSON.stringify({ ok: false, error: 'Failed to allocate a unique recordId' }),
   };
 }
 
