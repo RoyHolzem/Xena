@@ -89,6 +89,8 @@ A dedicated HTTPS API for safe access to operational data. The Lambda uses an IA
 
 ### Write Endpoints
 
+All write endpoints require `Authorization: Bearer <OpsApiBearerToken>`.
+
 | Method | Endpoint | Description | Required Fields |
 |---|---|---|---|
 | POST | `/incidents` | Create a new incident | `title`, `status`, `severity` |
@@ -127,6 +129,7 @@ aws cloudformation deploy \
   --template-file packaged.yaml \
   --stack-name xena-ops-api \
   --capabilities CAPABILITY_AUTO_EXPAND CAPABILITY_IAM \
+  --parameter-overrides OpsApiBearerToken="$XENA_OPS_API_TOKEN" \
   --region eu-central-1
 ```
 
