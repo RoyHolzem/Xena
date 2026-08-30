@@ -167,6 +167,10 @@ function generateRecordId(type) {
   return `${prefix}-${year}-${seq}`;
 }
 
+function isConditionalCheckFailed(error) {
+  return error?.name === 'ConditionalCheckFailedException';
+}
+
 function parseBody(event) {
   try {
     let body = event.body;
@@ -193,24 +197,54 @@ async function createRecord(type, body) {
   }
 
   const now = new Date().toISOString();
-  const recordId = body.recordId || generateRecordId(type);
+  const requestedRecordId = typeof body.recordId === 'string' && body.recordId.trim()
+    ? body.recordId.trim()
+    : null;
+  const maxAttempts = requestedRecordId ? 1 : 5;
 
-  const allowed = EDITABLE_FIELDS[type] || [];
-  const item = { recordId, createdAt: now, updatedAt: now, startTime: now };
-  for (const field of allowed) {
-    if (body[field] !== undefined && body[field] !== null) {
-      item[field] = body[field];
+  for (let attempt = 0; attempt < maxAttempts; attempt++) {
+    const recordId = requestedRecordId || generateRecordId(type);
+    const allowed = EDITABLE_FIELDS[type] || [];
+    const item = { recordId, createdAt: now, updatedAt: now, startTime: now };
+    for (const field of allowed) {
+      if (body[field] !== undefined && body[field] !== null) {
+        item[field] = body[field];
+      }
+    }
+    // Ensure startTime is set
+    if (!item.startTime) item.startTime = now;
+
+    try {
+      await ddb.send(new PutCommand({
+        TableName: TABLES[type],
+        Item: item,
+        ConditionExpression: 'attribute_not_exists(recordId)',
+      }));
+
+      return {
+        statusCode: 201,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ok: true, recordId, item: normalize(item) }),
+      };
+    } catch (error) {
+      if (isConditionalCheckFailed(error)) {
+        if (requestedRecordId || attempt === maxAttempts - 1) {
+          return {
+            statusCode: 409,
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ ok: false, error: `Record ${recordId} already exists` }),
+          };
+        }
+        continue;
+      }
+      throw error;
     }
   }
-  // Ensure startTime is set
-  if (!item.startTime) item.startTime = now;
-
-  await ddb.send(new PutCommand({ TableName: TABLES[type], Item: item }));
 
   return {
-    statusCode: 201,
+    statusCode: 409,
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ ok: true, recordId, item: normalize(item) }),
+    body: JSON.stringify({ ok: false, error: 'Failed to create unique record ID' }),
   };
 }
 
