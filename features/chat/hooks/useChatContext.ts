@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useRef, useState, useEffect, useCallback } from 'react';
+import { useMemo, useRef, useState, useEffect } from 'react';
 import type { ChatMessage, TelecomRecord, TelecomView } from '@/lib/types';
 import type { PinnedCard } from '../components/ContextCard';
 
@@ -43,7 +43,7 @@ export function useChatContext(
 
     if (!text) return { matchedRecord: null, matchedView: null };
 
-    const views: TelecomView[] = ['incidents', 'events', 'planned-works'];
+    const views: TelecomView[] = ['incidents', 'events', 'planned-works', 'orders'];
 
     // Strategy 1: exact recordId - highest priority
     for (const view of views) {
