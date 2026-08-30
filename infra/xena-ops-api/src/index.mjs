@@ -1,3 +1,4 @@
+import { timingSafeEqual } from 'node:crypto';
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
 import { DynamoDBDocumentClient, ScanCommand, GetCommand, PutCommand, UpdateCommand } from '@aws-sdk/lib-dynamodb';
 
@@ -25,6 +26,44 @@ const OPEN_STATUSES = {
   'planned-works': s => !['COMPLETED', 'CLOSED', 'CANCELLED'].includes(s),
   orders: s => !['COMPLETED', 'CANCELLED'].includes(s),
 };
+
+function jsonResponse(statusCode, body) {
+  return {
+    statusCode,
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  };
+}
+
+function headerValue(event, headerName) {
+  const headers = event.headers || {};
+  return headers[headerName] || headers[headerName.toLowerCase()] || headers[headerName.toUpperCase()];
+}
+
+function constantTimeEqual(left, right) {
+  const leftBuffer = Buffer.from(left);
+  const rightBuffer = Buffer.from(right);
+  return leftBuffer.length === rightBuffer.length && timingSafeEqual(leftBuffer, rightBuffer);
+}
+
+function requireWriteAuth(event) {
+  const expectedToken = process.env.XENA_OPS_API_TOKEN;
+  if (!expectedToken) {
+    return jsonResponse(500, { ok: false, error: 'Ops API write token is not configured' });
+  }
+
+  const authHeader = headerValue(event, 'Authorization');
+  if (!authHeader?.startsWith('Bearer ')) {
+    return jsonResponse(401, { ok: false, error: 'Missing auth token' });
+  }
+
+  const token = authHeader.slice(7);
+  if (!constantTimeEqual(token, expectedToken)) {
+    return jsonResponse(401, { ok: false, error: 'Invalid auth token' });
+  }
+
+  return null;
+}
 
 // Valid statuses per entity type
 const VALID_STATUSES = {
@@ -193,25 +232,46 @@ async function createRecord(type, body) {
   }
 
   const now = new Date().toISOString();
-  const recordId = body.recordId || generateRecordId(type);
+  const explicitRecordId = typeof body.recordId === 'string' && body.recordId.trim() ? body.recordId.trim() : null;
+  let recordId = explicitRecordId || generateRecordId(type);
 
   const allowed = EDITABLE_FIELDS[type] || [];
-  const item = { recordId, createdAt: now, updatedAt: now, startTime: now };
+  const baseItem = { createdAt: now, updatedAt: now, startTime: now };
   for (const field of allowed) {
     if (body[field] !== undefined && body[field] !== null) {
-      item[field] = body[field];
+      baseItem[field] = body[field];
     }
   }
   // Ensure startTime is set
-  if (!item.startTime) item.startTime = now;
+  if (!baseItem.startTime) baseItem.startTime = now;
 
-  await ddb.send(new PutCommand({ TableName: TABLES[type], Item: item }));
+  for (let attempt = 0; attempt < 5; attempt++) {
+    const item = { ...baseItem, recordId };
+    try {
+      await ddb.send(new PutCommand({
+        TableName: TABLES[type],
+        Item: item,
+        ConditionExpression: 'attribute_not_exists(recordId)',
+      }));
 
-  return {
-    statusCode: 201,
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ ok: true, recordId, item: normalize(item) }),
-  };
+      return {
+        statusCode: 201,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ok: true, recordId, item: normalize(item) }),
+      };
+    } catch (err) {
+      if (err?.name === 'ConditionalCheckFailedException' && !explicitRecordId && attempt < 4) {
+        recordId = generateRecordId(type);
+        continue;
+      }
+      if (err?.name === 'ConditionalCheckFailedException') {
+        return { statusCode: 409, body: JSON.stringify({ ok: false, error: `Record ${recordId} already exists` }) };
+      }
+      throw err;
+    }
+  }
+
+  return { statusCode: 409, body: JSON.stringify({ ok: false, error: 'Failed to allocate unique recordId' }) };
 }
 
 async function updateRecord(type, recordId, body) {
@@ -302,6 +362,10 @@ function matchPostRoute(route) {
 
 export const handler = async (event) => {
   const route = `${event.requestContext?.http?.method || 'GET'} ${event.rawPath || event.path || '/'}`;
+  if (route.startsWith('POST ') || route.startsWith('PUT ')) {
+    const authError = requireWriteAuth(event);
+    if (authError) return authError;
+  }
 
   // GET routes
   const getHandle = GET_ROUTES[route];

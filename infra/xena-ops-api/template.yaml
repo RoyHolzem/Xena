@@ -2,6 +2,13 @@ AWSTemplateFormatVersion: '2010-09-09'
 Transform: AWS::Serverless-2016-10-31
 Description: Xena Operations API — Lambda + HTTP API Gateway + least-privilege IAM
 
+Parameters:
+  OpsApiBearerToken:
+    Type: String
+    NoEcho: true
+    MinLength: 1
+    Description: Bearer token required in the Authorization header for write operations.
+
 Globals:
   Function:
     Runtime: nodejs20.x
@@ -13,6 +20,7 @@ Globals:
         EVENTS_TABLE: roy-telecom-events-lux
         PLANNED_WORKS_TABLE: roy-telecom-planned-works-lux
         ORDERS_TABLE: roy-telecom-orders-lux
+        XENA_OPS_API_TOKEN: !Ref OpsApiBearerToken
 
 Resources:
   XenaOpsFunction:
