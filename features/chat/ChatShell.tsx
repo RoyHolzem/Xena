@@ -34,6 +34,7 @@ export function ChatShell() {
 
   const [mode, setMode] = useState<AppMode>('xena');
   const [contextView, setContextView] = useState<TelecomView>('incidents');
+  const [focusedRecordTarget, setFocusedRecordTarget] = useState<{ view: TelecomView; recordId: string } | null>(null);
   const [search] = useState('');
   const [selectedModel, setSelectedModel] = useState(DEFAULT_MODEL);
   const [theme, setTheme] = useState<'dark' | 'light'>('dark');
@@ -105,7 +106,7 @@ export function ChatShell() {
   useActionLogSync(actionLog, chat.presence, chat.messages, getAuthToken);
 
   useEffect(() => {
-    const views: TelecomView[] = ['incidents', 'events', 'planned-works'];
+    const views: TelecomView[] = ['incidents', 'events', 'planned-works', 'orders'];
     for (const view of views) {
       void telecom.loadTelecomView(view, true);
     }
@@ -129,12 +130,26 @@ export function ChatShell() {
 
   // Navigate to a record: switch mode & view, select the record
   const handleNavigateToRecord = useCallback((view: TelecomView, recordId: string) => {
+    setFocusedRecordTarget({ view, recordId });
     setMode(view as AppMode);
     setContextView(view);
     telecom.selectRecord(view, recordId);
   }, [telecom]);
 
   const displayRecord = matchedRecord || telecom.selectedRecord;
+  const initialDashboardRecordId = focusedRecordTarget?.view === mode ? focusedRecordTarget.recordId : null;
+
+  const handleModeChange = useCallback((nextMode: AppMode) => {
+    setMode(nextMode);
+    setFocusedRecordTarget((current) => (
+      current && nextMode === current.view ? current : null
+    ));
+  }, []);
+
+  const handleBackToXena = useCallback(() => {
+    setFocusedRecordTarget(null);
+    setMode('xena');
+  }, []);
 
   const isXenaMode = mode === 'xena';
   const isReady = boot.bootState === 'ready';
@@ -158,7 +173,7 @@ export function ChatShell() {
     <div className={styles.shell}>
       <TopNav
         mode={mode}
-        setMode={setMode}
+        setMode={handleModeChange}
         ghStatus={ghStatus}
         ghCommit={ghCommit}
         models={models}
@@ -210,7 +225,8 @@ export function ChatShell() {
         ) : (
           <ModuleDashboard
             view={mode as TelecomView}
-            onBackToXena={() => setMode('xena')}
+            initialRecordId={initialDashboardRecordId}
+            onBackToXena={handleBackToXena}
           />
         )}
       </div>

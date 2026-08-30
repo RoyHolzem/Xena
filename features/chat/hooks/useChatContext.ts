@@ -43,7 +43,7 @@ export function useChatContext(
 
     if (!text) return { matchedRecord: null, matchedView: null };
 
-    const views: TelecomView[] = ['incidents', 'events', 'planned-works'];
+    const views: TelecomView[] = ['incidents', 'events', 'planned-works', 'orders'];
 
     // Strategy 1: exact recordId - highest priority
     for (const view of views) {
@@ -159,8 +159,8 @@ export function useChatContext(
           // Don't duplicate if this message already has this record pinned
           const existing = prev.find(c => c.messageId === lastAssistant.id && c.record.recordId === effectiveRecord.recordId);
           if (existing) return prev;
-          // Add new pin, remove any older pin for the same recordId
-          const filtered = prev.filter(c => c.record.recordId !== effectiveRecord.recordId);
+          // Keep one visible card per assistant message while preserving older message pins.
+          const filtered = prev.filter(c => c.messageId !== lastAssistant.id);
           return [...filtered, { messageId: lastAssistant.id, record: effectiveRecord, view: effectiveView }];
         });
       }
