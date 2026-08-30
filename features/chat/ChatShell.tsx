@@ -34,6 +34,7 @@ export function ChatShell() {
 
   const [mode, setMode] = useState<AppMode>('xena');
   const [contextView, setContextView] = useState<TelecomView>('incidents');
+  const [moduleInitialRecord, setModuleInitialRecord] = useState<{ view: TelecomView; recordId: string } | null>(null);
   const [search] = useState('');
   const [selectedModel, setSelectedModel] = useState(DEFAULT_MODEL);
   const [theme, setTheme] = useState<'dark' | 'light'>('dark');
@@ -127,8 +128,14 @@ export function ChatShell() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [matchedRecord, matchedView]);
 
+  const handleModeChange = useCallback((nextMode: AppMode) => {
+    setMode(nextMode);
+    setModuleInitialRecord(null);
+  }, []);
+
   // Navigate to a record: switch mode & view, select the record
   const handleNavigateToRecord = useCallback((view: TelecomView, recordId: string) => {
+    setModuleInitialRecord({ view, recordId });
     setMode(view as AppMode);
     setContextView(view);
     telecom.selectRecord(view, recordId);
@@ -158,7 +165,7 @@ export function ChatShell() {
     <div className={styles.shell}>
       <TopNav
         mode={mode}
-        setMode={setMode}
+        setMode={handleModeChange}
         ghStatus={ghStatus}
         ghCommit={ghCommit}
         models={models}
@@ -210,7 +217,11 @@ export function ChatShell() {
         ) : (
           <ModuleDashboard
             view={mode as TelecomView}
-            onBackToXena={() => setMode('xena')}
+            initialRecordId={moduleInitialRecord?.view === mode ? moduleInitialRecord.recordId : null}
+            onBackToXena={() => {
+              setMode('xena');
+              setModuleInitialRecord(null);
+            }}
           />
         )}
       </div>

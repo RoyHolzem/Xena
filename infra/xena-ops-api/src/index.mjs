@@ -2,6 +2,8 @@ import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
 import { DynamoDBDocumentClient, ScanCommand, GetCommand, PutCommand, UpdateCommand } from '@aws-sdk/lib-dynamodb';
 
 const ddb = DynamoDBDocumentClient.from(new DynamoDBClient({ region: process.env.AWS_REGION || 'eu-central-1' }));
+const OPS_API_TOKEN = process.env.XENA_OPS_API_TOKEN || '';
+const MAX_GENERATED_ID_ATTEMPTS = 5;
 
 const TABLES = {
   incidents: process.env.INCIDENTS_TABLE || 'roy-telecom-incidents-lux',
@@ -9,6 +11,22 @@ const TABLES = {
   'planned-works': process.env.PLANNED_WORKS_TABLE || 'roy-telecom-planned-works-lux',
   orders: process.env.ORDERS_TABLE || 'roy-telecom-orders-lux',
 };
+
+function jsonResponse(statusCode, body) {
+  return {
+    statusCode,
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  };
+}
+
+function isAuthorized(event) {
+  if (!OPS_API_TOKEN) return false;
+  const headers = event.headers || {};
+  const authHeader = headers.authorization || headers.Authorization || '';
+  const match = authHeader.match(/^Bearer\s+(.+)$/i);
+  return Boolean(match && match[1] === OPS_API_TOKEN);
+}
 
 const SEVERITY = { SEV1: 0, SEV2: 1, SEV3: 2, SEV4: 3 };
 
@@ -167,6 +185,17 @@ function generateRecordId(type) {
   return `${prefix}-${year}-${seq}`;
 }
 
+function isConditionalCheckFailed(error) {
+  return (
+    error instanceof Error && error.name === 'ConditionalCheckFailedException'
+  ) || (
+    Boolean(error) &&
+    typeof error === 'object' &&
+    'name' in error &&
+    error.name === 'ConditionalCheckFailedException'
+  );
+}
+
 function parseBody(event) {
   try {
     let body = event.body;
@@ -192,26 +221,44 @@ async function createRecord(type, body) {
     return { statusCode: 400, body: JSON.stringify({ ok: false, error: `Invalid status '${body.status}'. Valid: ${VALID_STATUSES[type].join(', ')}` }) };
   }
 
-  const now = new Date().toISOString();
-  const recordId = body.recordId || generateRecordId(type);
+  const requestedRecordId = typeof body.recordId === 'string' ? body.recordId.trim() : '';
+  const maxAttempts = requestedRecordId ? 1 : MAX_GENERATED_ID_ATTEMPTS;
 
-  const allowed = EDITABLE_FIELDS[type] || [];
-  const item = { recordId, createdAt: now, updatedAt: now, startTime: now };
-  for (const field of allowed) {
-    if (body[field] !== undefined && body[field] !== null) {
-      item[field] = body[field];
+  for (let attempt = 0; attempt < maxAttempts; attempt++) {
+    const now = new Date().toISOString();
+    const recordId = requestedRecordId || generateRecordId(type);
+    const allowed = EDITABLE_FIELDS[type] || [];
+    const item = { recordId, createdAt: now, updatedAt: now, startTime: now };
+    for (const field of allowed) {
+      if (body[field] !== undefined && body[field] !== null) {
+        item[field] = body[field];
+      }
+    }
+    // Ensure startTime is set
+    if (!item.startTime) item.startTime = now;
+
+    try {
+      await ddb.send(new PutCommand({
+        TableName: TABLES[type],
+        Item: item,
+        ConditionExpression: 'attribute_not_exists(recordId)',
+      }));
+
+      return {
+        statusCode: 201,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ok: true, recordId, item: normalize(item) }),
+      };
+    } catch (error) {
+      if (isConditionalCheckFailed(error)) {
+        if (!requestedRecordId && attempt < maxAttempts - 1) continue;
+        return { statusCode: 409, body: JSON.stringify({ ok: false, error: `Record ${recordId} already exists` }) };
+      }
+      throw error;
     }
   }
-  // Ensure startTime is set
-  if (!item.startTime) item.startTime = now;
 
-  await ddb.send(new PutCommand({ TableName: TABLES[type], Item: item }));
-
-  return {
-    statusCode: 201,
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ ok: true, recordId, item: normalize(item) }),
-  };
+  return { statusCode: 409, body: JSON.stringify({ ok: false, error: 'Failed to allocate a unique recordId' }) };
 }
 
 async function updateRecord(type, recordId, body) {
@@ -302,6 +349,10 @@ function matchPostRoute(route) {
 
 export const handler = async (event) => {
   const route = `${event.requestContext?.http?.method || 'GET'} ${event.rawPath || event.path || '/'}`;
+
+  if (!isAuthorized(event)) {
+    return jsonResponse(401, { ok: false, error: 'Unauthorized' });
+  }
 
   // GET routes
   const getHandle = GET_ROUTES[route];
