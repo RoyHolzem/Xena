@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState, useCallback } from 'react';
+import { useMemo, useState, useCallback, useEffect, useRef } from 'react';
 import type { TelecomRecord, TelecomView } from '@/lib/types';
 import { useTelecom } from '../hooks/useTelecom';
 import { useTelecomMutation } from '../hooks/useTelecomMutation';
@@ -72,13 +72,16 @@ type StatusFilter = 'all' | 'active' | 'closed' | string;
 interface ModuleDashboardProps {
   view: TelecomView;
   onBackToXena: () => void;
+  focusRecordId?: string | null;
+  onFocusRecordHandled?: () => void;
 }
 
-export function ModuleDashboard({ view, onBackToXena }: ModuleDashboardProps) {
+export function ModuleDashboard({ view, onBackToXena, focusRecordId, onFocusRecordHandled }: ModuleDashboardProps) {
   const getAuthToken = useAuthToken();
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const focusedRecordKeyRef = useRef<string | null>(null);
 
   const {
     records,
@@ -97,6 +100,18 @@ export function ModuleDashboard({ view, onBackToXena }: ModuleDashboardProps) {
 
   const meta = VIEW_META.find((v) => v.key === view);
   const statuses = STATUS_CONFIG[view];
+
+  useEffect(() => {
+    if (!focusRecordId) return;
+
+    const focusKey = `${view}:${focusRecordId}`;
+    if (focusedRecordKeyRef.current === focusKey) return;
+    focusedRecordKeyRef.current = focusKey;
+
+    setSelectedRecordIds((prev) => ({ ...prev, [view]: focusRecordId }));
+    void loadTelecomView(view, true, focusRecordId);
+    onFocusRecordHandled?.();
+  }, [focusRecordId, view, setSelectedRecordIds, loadTelecomView, onFocusRecordHandled]);
 
   // Apply status filter on top of search filter
   const filteredRecords = useMemo(() => {
