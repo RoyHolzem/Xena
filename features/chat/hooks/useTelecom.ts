@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { TelecomApiResponse, TelecomRecord, TelecomView } from '@/lib/types';
 
 const TELECOM_REFRESH_INTERVAL = 60000;
@@ -63,6 +63,11 @@ export function useTelecom(
   const [telecomError, setTelecomError] = useState<Record<TelecomView, string | null>>(emptyErrors);
   const [telecomLoadedAt, setTelecomLoadedAt] = useState<Record<TelecomView, string | null>>(emptyLoadedAt);
   const [selectedRecordIds, setSelectedRecordIds] = useState<Record<TelecomView, string | null>>(emptySelected);
+  const selectedRecordIdsRef = useRef(selectedRecordIds);
+
+  useEffect(() => {
+    selectedRecordIdsRef.current = selectedRecordIds;
+  }, [selectedRecordIds]);
 
   const fetchTelecomPayload = useCallback(
     async (view: TelecomView, recordId?: string) => {
@@ -100,13 +105,14 @@ export function useTelecom(
   const loadTelecomView = useCallback(
     async (view: TelecomView, force = false, recordId?: string) => {
       if (!recordId && !force && telecomData[view].length > 0) return;
+      const requestedRecordId = recordId ?? selectedRecordIdsRef.current[view] ?? undefined;
 
       setTelecomLoading((prev) => ({ ...prev, [view]: true }));
       setTelecomError((prev) => ({ ...prev, [view]: null }));
 
       try {
-        const payload = await fetchTelecomPayload(view, recordId);
-        applyPayload(view, payload, recordId ?? null);
+        const payload = await fetchTelecomPayload(view, requestedRecordId);
+        applyPayload(view, payload, requestedRecordId ?? null);
       } catch (err) {
         const message = err instanceof Error ? err.message : 'Failed to load records';
         setTelecomError((prev) => ({ ...prev, [view]: message }));
@@ -156,8 +162,8 @@ export function useTelecom(
   const selectedRecord = useMemo(() => {
     const selectedId = selectedRecordIds[activeView];
     if (!selectedId) return null;
-    return filteredRecords.find((record) => record.recordId === selectedId) ?? null;
-  }, [activeView, filteredRecords, selectedRecordIds]);
+    return records.find((record) => record.recordId === selectedId) ?? null;
+  }, [activeView, records, selectedRecordIds]);
 
   /**
    * Override the active view + selected record from chat context.
