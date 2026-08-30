@@ -82,10 +82,15 @@ export function ChatCenter({
               : statusLabel
     : statusLabel;
 
-  // Build a map of messageId -> pinned card for quick lookup
-  const cardByMessage = new Map<string, PinnedCard>();
+  // Build a map of messageId -> pinned cards; one assistant response can reference multiple records.
+  const cardsByMessage = new Map<string, PinnedCard[]>();
   for (const card of pinnedCards) {
-    cardByMessage.set(card.messageId, card);
+    const cards = cardsByMessage.get(card.messageId);
+    if (cards) {
+      cards.push(card);
+    } else {
+      cardsByMessage.set(card.messageId, [card]);
+    }
   }
 
   return (
@@ -119,7 +124,7 @@ export function ChatCenter({
           </div>
         )}
         {messages.map((message, index) => {
-          const pinnedCard = cardByMessage.get(message.id);
+          const messagePinnedCards = cardsByMessage.get(message.id) ?? [];
           return (
             <div
               key={message.id}
@@ -144,8 +149,11 @@ export function ChatCenter({
                   )}
                 </div>
                 {/* Pinned context card: persists on this message */}
-                {pinnedCard && (
-                  <div className={styles.chatContextCardWrap}>
+                {messagePinnedCards.map((pinnedCard) => (
+                  <div
+                    key={`${pinnedCard.view}:${pinnedCard.record.recordId}`}
+                    className={styles.chatContextCardWrap}
+                  >
                     <ContextCard
                       record={pinnedCard.record}
                       view={pinnedCard.view}
@@ -153,7 +161,7 @@ export function ChatCenter({
                       onNavigate={() => onNavigateToRecord(pinnedCard.view, pinnedCard.record.recordId)}
                     />
                   </div>
-                )}
+                ))}
               </div>
             </div>
           );
