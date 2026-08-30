@@ -1,5 +1,6 @@
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
 import { DynamoDBDocumentClient, ScanCommand, GetCommand, PutCommand, UpdateCommand } from '@aws-sdk/lib-dynamodb';
+import { isPlannedWorkToday } from './planned-works-today.mjs';
 
 const ddb = DynamoDBDocumentClient.from(new DynamoDBClient({ region: process.env.AWS_REGION || 'eu-central-1' }));
 
@@ -140,17 +141,11 @@ async function getOpen(table, type) {
 
 async function getPlannedWorksToday(table) {
   const items = await scanAll(table);
-  const now = new Date();
-  const today = now.toISOString().slice(0, 10);
-  return items.filter(item => {
-    const start = item.startTime ? new Date(item.startTime) : null;
-    const end = (item.endTime || item.maintenanceWindowEnd) ? new Date(item.endTime || item.maintenanceWindowEnd) : null;
-    if (!start) return false;
-    const startDate = start.toISOString().slice(0, 10);
-    if (startDate === today) return true;
-    if (end) return today >= startDate && today <= end.toISOString().slice(0, 10);
-    return false;
-  }).sort(sorter('planned-works')).map(normalize);
+  const today = new Date().toISOString().slice(0, 10);
+  return items
+    .filter(item => isPlannedWorkToday(item, today))
+    .sort(sorter('planned-works'))
+    .map(normalize);
 }
 
 // ─── Write handlers ───
@@ -188,8 +183,10 @@ async function createRecord(type, body) {
     return { statusCode: 400, body: JSON.stringify({ ok: false, error: `Missing required fields: ${missing.join(', ')}` }) };
   }
 
-  if (body.status && VALID_STATUSES[type] && !VALID_STATUSES[type].includes(body.status)) {
-    return { statusCode: 400, body: JSON.stringify({ ok: false, error: `Invalid status '${body.status}'. Valid: ${VALID_STATUSES[type].join(', ')}` }) };
+  if (body.status !== undefined && body.status !== null) {
+    if (!VALID_STATUSES[type] || !VALID_STATUSES[type].includes(body.status)) {
+      return { statusCode: 400, body: JSON.stringify({ ok: false, error: `Invalid status '${body.status}'. Valid: ${(VALID_STATUSES[type] || []).join(', ')}` }) };
+    }
   }
 
   const now = new Date().toISOString();
@@ -224,8 +221,10 @@ async function updateRecord(type, recordId, body) {
     return { statusCode: 404, body: JSON.stringify({ ok: false, error: `Record ${recordId} not found` }) };
   }
 
-  if (body.status && VALID_STATUSES[type] && !VALID_STATUSES[type].includes(body.status)) {
-    return { statusCode: 400, body: JSON.stringify({ ok: false, error: `Invalid status '${body.status}'. Valid: ${VALID_STATUSES[type].join(', ')}` }) };
+  if (body.status !== undefined && body.status !== null) {
+    if (!VALID_STATUSES[type] || !VALID_STATUSES[type].includes(body.status)) {
+      return { statusCode: 400, body: JSON.stringify({ ok: false, error: `Invalid status '${body.status}'. Valid: ${(VALID_STATUSES[type] || []).join(', ')}` }) };
+    }
   }
 
   const allowed = EDITABLE_FIELDS[type] || [];
